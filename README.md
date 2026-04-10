@@ -66,12 +66,3 @@ Prior to execution, ensure the host environment meets the following prerequisite
 * **Browser:** A modern, WebGL-compatible browser (Google Chrome or Mozilla Firefox recommended) for hardware acceleration.
 
 ---
-
-## Installation
-
-Follow these steps to configure the development environment locally:
-
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/Prarth314/Cognihood.git](https://github.com/Prarth314/Cognihood.git)
-   cd Cognihood
