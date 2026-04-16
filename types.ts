@@ -52,3 +52,15 @@ export interface Poi {
   cl_rating: 'LOW' | 'MED' | 'HIGH'; // Cognitive Load Rating
   coordinates: { lat: number; lng: number };
 }
+
+export type SafetyStatus = 'POOR' | 'NOMINAL' | 'EXCELLENT';
+
+export interface TripRecord {
+  id: string;
+  userId: string;
+  startTime: number;
+  durationMinutes: number;
+  avgSafetyIndex: number;
+  incidentCount: number;
+  status: SafetyStatus;
+}
