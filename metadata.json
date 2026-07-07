@@ -1,0 +1,8 @@
+{
+  "name": "CogniHood Driver Safety System",
+  "description": "A high-fidelity driver safety assistance prototype that uses AI vision to monitor fatigue, stress, and alertness, providing real-time safety scores and navigation rerouting.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
