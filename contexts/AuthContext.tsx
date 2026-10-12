@@ -3,7 +3,6 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured, checkSupabaseConnection } from '../services/supabaseClient';
 import { getProfile } from '../services/tripStore';
-import { migrateLegacyIndexedDbToSupabase } from '../services/legacyMigration';
 
 interface AuthContextValue {
   user: User | null;
@@ -54,11 +53,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (newSession?.user) {
       await loadProfile(newSession.user.id);
-      try {
-        await migrateLegacyIndexedDbToSupabase(newSession.user.id);
-      } catch (e) {
-        console.warn('Legacy migration skipped', e);
-      }
     } else {
       setCogniId(null);
       setDisplayName(null);

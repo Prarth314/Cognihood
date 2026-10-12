@@ -1,5 +1,5 @@
 import React from 'react';
-import { TripRecord } from '../types';
+import { TripRecord } from '../../types';
 
 import Card from '../ui/Card';
 

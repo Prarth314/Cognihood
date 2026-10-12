@@ -13,6 +13,7 @@ import Badge from './ui/Badge';
 import EmptyState from './ui/EmptyState';
 import { SkeletonCard } from './ui/Skeleton';
 import IncidentReviewModal from './IncidentReviewModal';
+import { getLegacyMigrationSummary, migrateLegacyIndexedDbToSupabase } from '../services/legacyMigration';
 
 const PastRecords: React.FC = () => {
   const { user } = useAuth();
@@ -21,6 +22,30 @@ const PastRecords: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<TripRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importingLegacy, setImportingLegacy] = useState(false);
+
+  const importLegacy = async () => {
+    if (!user || importingLegacy) return;
+    setImportingLegacy(true);
+    setError(null);
+    try {
+      const summary = await getLegacyMigrationSummary();
+      if (summary.trips === 0 && !summary.hasBaseline) {
+        setError('No legacy browser data was found on this device.');
+        return;
+      }
+      const confirmed = window.confirm(
+        `This browser contains ${summary.trips} legacy trip(s)${summary.hasBaseline ? ' and a baseline' : ''}. Only continue if this data belongs to the currently signed-in account. After a successful import, the legacy browser copy will be deleted.`
+      );
+      if (!confirmed) return;
+      await migrateLegacyIndexedDbToSupabase(user.id, true);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Legacy import failed');
+    } finally {
+      setImportingLegacy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -145,6 +170,9 @@ const PastRecords: React.FC = () => {
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={load}>
               <i className="fas fa-rotate" aria-hidden="true" /> Refresh
+            </Button>
+            <Button variant="secondary" size="sm" onClick={importLegacy} disabled={importingLegacy}>
+              <i className="fas fa-database" aria-hidden="true" /> {importingLegacy ? 'Importing…' : 'Import legacy data'}
             </Button>
             <Button variant="secondary" size="sm" onClick={() => downloadCogniLogs(user.id)}>
               <i className="fas fa-file-export" aria-hidden="true" /> Export

@@ -33,9 +33,9 @@ export const storageService = {
       return { totalHours: "0.0", avgSafety: "0.0", totalIncidents: 0 };
     }
 
-    const totalMinutes = trips.reduce((sum, trip) => sum + trip.durationMinutes, 0);
-    const avgSafety = trips.reduce((sum, trip) => sum + trip.avgSafetyIndex, 0) / trips.length;
-    const totalIncidents = trips.reduce((sum, trip) => sum + trip.incidentCount, 0);
+    const totalMinutes = trips.reduce((sum, trip) => sum + trip.durationMs / 60_000, 0);
+    const avgSafety = trips.reduce((sum, trip) => sum + trip.avgScore, 0) / trips.length;
+    const totalIncidents = trips.reduce((sum, trip) => sum + trip.incidents, 0);
 
     return {
       totalHours: (totalMinutes / 60).toFixed(1),

@@ -75,7 +75,14 @@ const NavigationPanel: React.FC<NavigationPanelProps> = ({ safetyState, onRerout
 
       <div className="p-5 pt-0">
         <div className="aspect-video w-full bg-[var(--bg-muted)] rounded-lg border border-[var(--border)] overflow-hidden relative">
-          <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/map/400/225')] opacity-15 bg-cover" aria-hidden="true" />
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage: 'linear-gradient(35deg, transparent 44%, var(--primary) 45%, transparent 47%), linear-gradient(145deg, transparent 54%, var(--text-secondary) 55%, transparent 57%)',
+              backgroundSize: '72px 72px, 96px 96px',
+            }}
+            aria-hidden="true"
+          />
           <div className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
             <div className="w-2.5 h-2.5 bg-[var(--primary)] rounded-full shadow-md" />
           </div>

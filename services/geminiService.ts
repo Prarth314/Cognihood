@@ -1,174 +1,139 @@
-
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { SYSTEM_INSTRUCTION } from "../constants";
 import {
+  AutonomyLevel,
+  DriverMetrics,
+  LocalFaceSnapshot,
   SafetyAssessment,
   SafetyState,
-  DriverMetrics,
-  AutonomyLevel,
   TemporalAnalysis,
-  LocalFaceSnapshot,
-} from "../types";
+} from '../types';
+import { getSupabase } from './supabaseClient';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+type RemoteAnalysis = {
+  metrics: Omit<DriverMetrics, 'cognitiveLoad'>;
+  cognitiveLoad: number;
+  autonomyLevel: AutonomyLevel;
+  explanation: string;
+  moodIntervention?: string;
+  fingerprintDeviation: number;
+};
 
-export function mergeLocalIntoMetrics(
-  geminiMetrics: DriverMetrics,
-  local: LocalFaceSnapshot | null,
-  temporal?: TemporalAnalysis | null
-): DriverMetrics {
-  if (!local?.faceDetected) return geminiMetrics;
+const MAX_IMAGE_BASE64_LENGTH = 1_500_000;
+const VALID_AUTONOMY = new Set(Object.values(AutonomyLevel));
+
+function clampNumber(value: unknown, min: number, max: number, fallback = 0): number {
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(min, number)) : fallback;
+}
+
+function safeText(value: unknown, maxLength: number, fallback: string): string {
+  return typeof value === 'string' && value.trim()
+    ? value.trim().slice(0, maxLength)
+    : fallback;
+}
+
+function validateRemoteAnalysis(value: unknown): RemoteAnalysis {
+  if (!value || typeof value !== 'object') throw new Error('AI service returned an invalid response.');
+  const input = value as Record<string, unknown>;
+  const rawMetrics = input.metrics;
+  if (!rawMetrics || typeof rawMetrics !== 'object') throw new Error('AI response omitted metrics.');
+  const metrics = rawMetrics as Record<string, unknown>;
+  const rawPose = metrics.headPose;
+  if (!rawPose || typeof rawPose !== 'object') throw new Error('AI response omitted head pose.');
+  const pose = rawPose as Record<string, unknown>;
+  const autonomy = VALID_AUTONOMY.has(input.autonomyLevel as AutonomyLevel)
+    ? input.autonomyLevel as AutonomyLevel
+    : AutonomyLevel.INFORM;
 
   return {
-    ...geminiMetrics,
-    ear: local.ear,
-    blinkRate: temporal?.blinkRatePerMin ?? geminiMetrics.blinkRate,
-    headPose: local.headPose,
-    closureDuration: local.eyesClosed
-      ? geminiMetrics.closureDuration + 0.1
-      : Math.max(0, geminiMetrics.closureDuration - 0.05),
+    metrics: {
+      ear: clampNumber(metrics.ear, 0, 1, 0.3),
+      blinkRate: clampNumber(metrics.blinkRate, 0, 120, 12),
+      closureDuration: clampNumber(metrics.closureDuration, 0, 60),
+      headPose: {
+        pitch: clampNumber(pose.pitch, -90, 90),
+        yaw: clampNumber(pose.yaw, -90, 90),
+        roll: clampNumber(pose.roll, -90, 90),
+      },
+      stressLevel: clampNumber(metrics.stressLevel, 0, 100),
+      distractionLevel: clampNumber(metrics.distractionLevel, 0, 100),
+    },
+    cognitiveLoad: clampNumber(input.cognitiveLoad, 0, 100),
+    autonomyLevel: autonomy,
+    explanation: safeText(input.explanation, 500, 'Remote analysis returned no explanation.'),
+    moodIntervention: safeText(input.moodIntervention, 240, ''),
+    fingerprintDeviation: clampNumber(input.fingerprintDeviation, 0, 100),
   };
 }
 
-function buildTemporalContext(temporal?: TemporalAnalysis | null): string {
-  if (!temporal || temporal.sampleCount < 5) {
-    return 'Temporal buffer still warming up.';
-  }
-  return [
-    `PERCLOS (30s): ${temporal.perclos30.toFixed(1)}%`,
-    `Highway Hypnosis Index: ${temporal.highwayHypnosisIndex}`,
-    `Gaze stagnation: ${temporal.gazeStagnation.toFixed(0)}%`,
-    `Monotony duration: ${temporal.monotonyDurationSec.toFixed(0)}s`,
-    `Local blink rate: ${temporal.blinkRatePerMin.toFixed(1)}/min`,
-  ].join('. ');
+export function mergeLocalIntoMetrics(
+  remoteMetrics: DriverMetrics,
+  local: LocalFaceSnapshot | null,
+  temporal?: TemporalAnalysis | null
+): DriverMetrics {
+  if (!local?.faceDetected) return remoteMetrics;
+  return {
+    ...remoteMetrics,
+    ear: clampNumber(local.ear, 0, 1, remoteMetrics.ear),
+    blinkRate: temporal?.blinkRatePerMin ?? remoteMetrics.blinkRate,
+    headPose: local.headPose,
+    closureDuration: local.eyesClosed
+      ? Math.min(60, remoteMetrics.closureDuration + 0.1)
+      : Math.max(0, remoteMetrics.closureDuration - 0.05),
+  };
 }
 
-export const analyzeDrivingEnvironment = async (
+export async function analyzeDrivingEnvironment(
   base64Image: string,
   history: SafetyAssessment[],
   temporal?: TemporalAnalysis | null,
   localSnapshot?: LocalFaceSnapshot | null
-): Promise<SafetyAssessment> => {
-  try {
-    const temporalContext = buildTemporalContext(temporal);
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
-          {
-            text: `Analyze driver state from the current frame. Previous safety score was ${history[history.length - 1]?.score || 100}. Determine fatigue, distraction, and cognitive load. Temporal analysis (local MediaPipe, last 30s): ${temporalContext}. Prioritize temporal PERCLOS and hypnosis index when estimating alertness.`,
-          },
-        ],
-      },
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION + `
-        Ensure the following fields are also included in the JSON output:
-        - cognitiveLoad: range 0-100
-        - autonomyLevel: strictly one of "INFORM", "SUGGEST", "ASSIST", "OVERRIDE"
-        - moodIntervention: a short string for audio/therapy suggestion
-        - fingerprintDeviation: range 0-100 indicating deviation from baseline behavior`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          required: ["metrics", "explanation", "cognitiveLoad", "autonomyLevel"],
-          properties: {
-            metrics: {
-              type: Type.OBJECT,
-              required: ["ear", "blinkRate", "closureDuration", "headPose", "stressLevel", "distractionLevel"],
-              properties: {
-                ear: { type: Type.NUMBER },
-                blinkRate: { type: Type.NUMBER },
-                closureDuration: { type: Type.NUMBER },
-                headPose: {
-                  type: Type.OBJECT,
-                  required: ["pitch", "yaw", "roll"],
-                  properties: {
-                    pitch: { type: Type.NUMBER },
-                    yaw: { type: Type.NUMBER },
-                    roll: { type: Type.NUMBER },
-                  },
-                },
-                stressLevel: { type: Type.NUMBER },
-                distractionLevel: { type: Type.NUMBER },
-              },
-            },
-            cognitiveLoad: { type: Type.NUMBER },
-            autonomyLevel: { type: Type.STRING },
-            explanation: { type: Type.STRING },
-            moodIntervention: { type: Type.STRING },
-            fingerprintDeviation: { type: Type.NUMBER },
-          },
-        },
-      },
-    });
-
-    const result = JSON.parse(response.text || '{}');
-    let metrics: DriverMetrics = {
-      ...result.metrics,
-      cognitiveLoad: result.cognitiveLoad ?? 0,
-    };
-    metrics = mergeLocalIntoMetrics(metrics, localSnapshot ?? null, temporal);
-
-    const distractionWeight = (metrics.distractionLevel ?? 0) * 0.55;
-    const stressWeight = (metrics.stressLevel ?? 0) * 0.25;
-    const loadWeight = (metrics.cognitiveLoad ?? 0) * 0.15;
-    const deviationWeight = (result.fingerprintDeviation ?? 0) * 0.05;
-    const perclosPenalty = temporal ? temporal.perclos30 * 0.35 : 0;
-    const hypnosisPenalty = temporal ? temporal.highwayHypnosisIndex * 0.2 : 0;
-
-    let score = Math.max(
-      0,
-      100 - (distractionWeight + stressWeight + loadWeight + deviationWeight + perclosPenalty + hypnosisPenalty)
-    );
-
-    if (isNaN(score)) score = history[history.length - 1]?.score || 100;
-
-    let state = SafetyState.SAFE;
-    if (score < 40 || (temporal && temporal.perclos30 >= 25)) state = SafetyState.CRITICAL;
-    else if (score < 70 || (temporal && temporal.highwayHypnosisIndex >= 55)) state = SafetyState.WARNING;
-
-    return {
-      score,
-      state,
-      autonomyLevel: (result.autonomyLevel as AutonomyLevel) || AutonomyLevel.INFORM,
-      explanation: result.explanation || "System monitoring active.",
-      metrics,
-      intervention: result.moodIntervention,
-      timestamp: Date.now(),
-      temporal: temporal ?? undefined,
-    };
-  } catch (error) {
-    console.error("CogniIntelligence Analysis Failure", error);
-    return {
-      score: history[history.length - 1]?.score || 100,
-      state: SafetyState.SAFE,
-      autonomyLevel: AutonomyLevel.INFORM,
-      explanation: "Analysis interrupted. Maintaining baseline monitoring.",
-      metrics: history[history.length - 1]?.metrics || {
-        ear: 0.3,
-        blinkRate: 12,
-        closureDuration: 0.1,
-        headPose: { pitch: 0, yaw: 0, roll: 0 },
-        stressLevel: 0,
-        distractionLevel: 0,
-        cognitiveLoad: 0,
-      },
-      timestamp: Date.now(),
-      temporal: temporal ?? undefined,
-    };
+): Promise<SafetyAssessment> {
+  if (!base64Image || base64Image.length > MAX_IMAGE_BASE64_LENGTH) {
+    throw new Error('Camera frame is empty or exceeds the secure upload limit.');
   }
-};
 
-export const generateSpeech = async (text: string) => {
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+  const { data, error } = await getSupabase().functions.invoke('gemini-assist', {
+    body: {
+      action: 'analyze',
+      imageBase64: base64Image,
+      previousScore: history.at(-1)?.score ?? 100,
+      temporal: temporal ? {
+        perclos30: temporal.perclos30,
+        highwayHypnosisIndex: temporal.highwayHypnosisIndex,
+        gazeStagnation: temporal.gazeStagnation,
+        monotonyDurationSec: temporal.monotonyDurationSec,
+        blinkRatePerMin: temporal.blinkRatePerMin,
+      } : null,
     },
   });
-  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
-};
+  if (error) throw new Error(`Remote analysis unavailable: ${error.message}`);
+
+  const result = validateRemoteAnalysis(data);
+  let metrics: DriverMetrics = { ...result.metrics, cognitiveLoad: result.cognitiveLoad };
+  metrics = mergeLocalIntoMetrics(metrics, localSnapshot ?? null, temporal);
+
+  const penalty =
+    metrics.distractionLevel * 0.55 +
+    metrics.stressLevel * 0.25 +
+    metrics.cognitiveLoad * 0.15 +
+    result.fingerprintDeviation * 0.05 +
+    (temporal?.perclos30 ?? 0) * 0.35 +
+    (temporal?.highwayHypnosisIndex ?? 0) * 0.2;
+  const score = clampNumber(100 - penalty, 0, 100, history.at(-1)?.score ?? 50);
+
+  let state = SafetyState.SAFE;
+  if (score < 40 || (temporal?.perclos30 ?? 0) >= 25) state = SafetyState.CRITICAL;
+  else if (score < 70 || (temporal?.highwayHypnosisIndex ?? 0) >= 55) state = SafetyState.WARNING;
+
+  return {
+    score,
+    state,
+    autonomyLevel: result.autonomyLevel,
+    explanation: result.explanation,
+    metrics,
+    intervention: result.moodIntervention || undefined,
+    timestamp: Date.now(),
+    temporal: temporal ?? undefined,
+    analysisSource: 'REMOTE',
+  };
+}

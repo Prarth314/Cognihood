@@ -2,11 +2,12 @@
 type MotionCallback = (type: 'brake' | 'accel', magnitudeG: number) => void;
 
 let listening = false;
-let lastMagnitude = 1;
+let lastMagnitude = 9.80665;
 let callback: MotionCallback | null = null;
 
-const BRAKE_THRESHOLD = 2.2;
-const ACCEL_THRESHOLD = 2.0;
+const STANDARD_GRAVITY = 9.80665;
+const BRAKE_THRESHOLD_G = 0.22;
+const ACCEL_THRESHOLD_G = 0.2;
 const COOLDOWN_MS = 3000;
 let lastBrakeAt = 0;
 let lastAccelAt = 0;
@@ -16,16 +17,16 @@ function handleMotion(e: DeviceMotionEvent): void {
   if (!a || a.x == null || a.y == null || a.z == null) return;
 
   const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
-  const delta = mag - lastMagnitude;
+  const deltaG = (mag - lastMagnitude) / STANDARD_GRAVITY;
   lastMagnitude = mag;
   const now = Date.now();
 
-  if (delta < -BRAKE_THRESHOLD && now - lastBrakeAt > COOLDOWN_MS) {
+  if (deltaG < -BRAKE_THRESHOLD_G && now - lastBrakeAt > COOLDOWN_MS) {
     lastBrakeAt = now;
-    callback?.('brake', Math.abs(delta));
-  } else if (delta > ACCEL_THRESHOLD && now - lastAccelAt > COOLDOWN_MS) {
+    callback?.('brake', Math.abs(deltaG));
+  } else if (deltaG > ACCEL_THRESHOLD_G && now - lastAccelAt > COOLDOWN_MS) {
     lastAccelAt = now;
-    callback?.('accel', delta);
+    callback?.('accel', deltaG);
   }
 }
 
@@ -57,14 +58,4 @@ export function stopMotionListener(): void {
   window.removeEventListener('devicemotion', handleMotion);
   listening = false;
   callback = null;
-}
-
-/** Desktop fallback: simulate driving events for demo when no IMU available. */
-export function startSimulatedMotion(cb: MotionCallback): () => void {
-  const interval = setInterval(() => {
-    if (Math.random() > 0.92) {
-      cb('brake', 1.5 + Math.random() * 1.5);
-    }
-  }, 8000);
-  return () => clearInterval(interval);
 }

@@ -42,7 +42,7 @@ export class TripSession {
   private lastScoreRecordAt = 0;
 
   constructor(userId: string) {
-    this.id = `TRIP_${Date.now()}`;
+    this.id = crypto.randomUUID();
     this.startTime = Date.now();
     this.userId = userId;
   }
@@ -90,10 +90,8 @@ export class TripSession {
 
   recordHarshBrake(decelG: number): void {
     this.harshBrakes++;
-    const reactionDelay = 0.8 + Math.random() * 0.8;
     this.addEvent('HARSH_BRAKE', Math.min(100, decelG * 30), `Hard brake detected (${decelG.toFixed(1)}g)`, {
       decelG,
-      reactionDelaySec: reactionDelay,
     });
   }
 
@@ -177,7 +175,7 @@ export class TripSession {
     metadata?: Record<string, number>
   ): void {
     this.events.push({
-      id: `ev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: crypto.randomUUID(),
       type,
       timestamp: Date.now(),
       severity,
