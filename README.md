@@ -23,7 +23,7 @@ CogniHood combines local facial-landmark analysis with temporal safety signals a
 - Records trip events, safety scores, and coaching suggestions.
 - Builds a personal cognitive fingerprint from previous trips.
 - Synchronizes authenticated trip history through Supabase.
-- Supports anonymous quick start and email/password authentication.
+- Uses confirmed email/password accounts; anonymous access is intentionally disabled.
 - Provides light, dark, system, and high-contrast display modes.
 
 ## How the system fits together
@@ -43,7 +43,7 @@ flowchart LR
     DB --> Baseline[Personal baseline and coaching]
 ```
 
-The browser currently performs local MediaPipe analysis and also sends periodic compressed camera frames to Google Gemini for additional interpretation. Review [Security and privacy](#security-and-privacy) before deploying the project.
+The browser performs local MediaPipe analysis continuously. Only after per-trip consent, it sends occasional compressed frames to Google Gemini through an authenticated, rate-limited Supabase Edge Function. Review [Security and privacy](#security-and-privacy) before deploying the project.
 
 ## Technology
 
@@ -53,7 +53,7 @@ The browser currently performs local MediaPipe analysis and also sends periodic 
 | Local vision | MediaPipe Face Landmarker |
 | Optional AI interpretation | Google Gemini through an authenticated Supabase Edge Function |
 | Spoken alerts | Browser speech synthesis (local) |
-| Authentication | Supabase Auth |
+| Authentication | Supabase Auth (confirmed email/password only) |
 | Persistence | Supabase Postgres with Row Level Security |
 | Realtime updates | Supabase Realtime |
 | Styling | Project design tokens and utility classes |
@@ -89,8 +89,8 @@ Never commit `.env.local`. The Supabase publishable key is designed for browser 
 
 1. Open the SQL Editor in your Supabase project.
 2. Apply both files in [`supabase/migrations`](supabase/migrations) in numeric order. Existing deployments should apply `002_security_hardening.sql` after the original schema.
-3. Under **Authentication → Providers**, enable email/password authentication.
-4. Enable anonymous authentication only if you want Quick Start and have configured suitable rate limits and abuse protection.
+3. Under **Authentication → Providers**, enable email/password authentication and require email confirmation.
+4. Keep phone, anonymous, and social providers disabled. Configure custom SMTP and CAPTCHA before public launch.
 5. If realtime archive updates are required, add `public.trips` to the `supabase_realtime` publication as described at the bottom of the initial migration.
 
 Using the Supabase CLI, the database and protected AI function can be deployed with:
@@ -105,13 +105,14 @@ supabase functions deploy gemini-assist
 
 Set secrets directly in your terminal or Supabase dashboard; never paste them into source code, commits, issues, or chat. `ALLOWED_ORIGINS` is intentionally local-only until configured for the production domain. The Edge Function authenticates every caller, enforces per-user quotas, limits frame size, times out upstream requests, and validates model output.
 
-The migration creates:
+The migrations create:
 
 | Table | Purpose |
 | --- | --- |
 | `profiles` | CogniID and display-name metadata |
 | `trips` | Trip summaries, safety events, score timelines, and coaching tips |
 | `cognitive_fingerprints` | Per-user historical driving baseline |
+| `ai_rate_limits` | Server-owned per-user AI request counters |
 
 All three tables use Row Level Security so authenticated users can access only their own records.
 
@@ -121,7 +122,7 @@ All three tables use Row Level Security so authenticated users can access only t
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), grant camera permission, and choose Quick Start or email sign-in.
+Open [http://localhost:3000](http://localhost:3000), create a confirmed email account, sign in, and grant camera permission.
 
 ### 5. Create a production bundle
 
@@ -134,7 +135,7 @@ npm run preview
 
 ## Application journey
 
-1. **Authenticate** — Create an account, sign in, or start an anonymous session.
+1. **Authenticate** — Create a confirmed email account or sign in.
 2. **Choose Live Monitoring** — Enter the pre-drive eligibility flow.
 3. **Complete the scan** — Keep your face visible while CogniHood establishes a short baseline.
 4. **Choose processing** — Continue locally or explicitly opt in to cloud-enhanced analysis for that trip.
@@ -200,18 +201,19 @@ The codebase now uses secure defaults:
 - Vercel and `_headers` templates provide CSP, framing, MIME, referrer, HSTS, and permissions policies.
 - CI runs type checking, tests, a production build, and a production dependency audit.
 
-The application remains a prototype and is **not ready for a safety-critical deployment** without operational review. Before public release, rotate the previously browser-exposed Gemini key, configure the real production origin, verify headers on the deployed response, review Supabase Auth rate limits/CAPTCHA, establish retention and incident-response policies, and complete domain-specific safety and privacy review.
+The application remains a prototype and is **not ready for a safety-critical deployment** without operational review. Before public release, rotate the previously browser-exposed Gemini key, configure the real production origin, deploy the pending database migration and Edge Function, verify headers on the deployed response, configure Auth rate limits/CAPTCHA/custom SMTP, establish retention and incident-response policies, and complete domain-specific safety and privacy review. See [`docs/COMMERCIAL_READINESS.md`](docs/COMMERCIAL_READINESS.md) for the current data-model review and launch decisions.
 
 Do not place credentials in issues, commits, screenshots, exported logs, or chat messages. Configure secrets directly through the deployment provider or Supabase secret manager.
 
 ## Data lifecycle
 
-- Camera frames stay local unless the driver explicitly enables cloud enhancement for that trip. When enabled, a compressed frame is periodically sent through the authenticated Edge Function to Gemini.
+- Camera frames stay local unless the driver explicitly enables cloud enhancement for that trip. When enabled, one compressed frame is sent through the authenticated Edge Function every 15 seconds normally, every 6 seconds during a warning, and every 4 seconds during a critical state.
+- The Edge Function permits at most 15 AI calls per minute and 2,500 calls per 24-hour quota window per user. This is an initial commercial guardrail and should be tuned from production telemetry and cost data.
 - Derived metrics and trip events are accumulated for the active session.
 - Ending a trip writes its summary to the signed-in user's Supabase account.
 - Raw camera frames are not included in the `trips` schema.
 - **Export** downloads the signed-in user's profile reference, baseline, and trip records as JSON.
-- Legacy IndexedDB data is imported only after an explicit ownership warning and confirmation, then deleted locally after a successful upload.
+- Legacy IndexedDB data is never uploaded automatically. A signed-in user must explicitly import it after an ownership warning; the browser copy is deleted only after a successful upload. Remove the importer after the documented migration window.
 
 ## Troubleshooting
 

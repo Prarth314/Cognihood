@@ -18,13 +18,11 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     error,
     cogniId,
     user,
-    signInAnonymously,
     signInWithEmail,
     signUpWithEmail,
     clearError,
   } = useAuth();
 
-  const [mode, setMode] = useState<'quick' | 'email'>('quick');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -33,13 +31,6 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   React.useEffect(() => {
     if (user) onAuthenticated();
   }, [user, onAuthenticated]);
-
-  const handleQuickStart = async () => {
-    setSubmitting(true);
-    clearError();
-    await signInAnonymously();
-    setSubmitting(false);
-  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,22 +93,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
               </div>
             )}
 
-            {mode === 'quick' ? (
-              <div className="space-y-3">
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleQuickStart}
-                  disabled={!supabaseReady || submitting}
-                >
-                  {submitting ? 'Connecting…' : 'Quick start (anonymous)'}
-                </Button>
-                <Button variant="ghost" className="w-full" onClick={() => setMode('email')}>
-                  Sign in with email
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleEmailAuth} className="space-y-4">
+            <form onSubmit={handleEmailAuth} className="space-y-4">
                 <Input
                   label="Email"
                   type="email"
@@ -131,25 +107,21 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   label="Password"
                   type="password"
                   required
-                  minLength={6}
-                  placeholder="At least 6 characters"
+                  minLength={isSignUp ? 10 : 6}
+                  placeholder={isSignUp ? 'At least 10 characters' : 'Your password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
                 />
-                <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+                <Button type="submit" className="w-full" size="lg" disabled={!supabaseReady || submitting}>
                   {isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
                 <div className="flex flex-col gap-2">
                   <Button type="button" variant="ghost" onClick={() => setIsSignUp(!isSignUp)}>
                     {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => setMode('quick')}>
-                    Back to quick start
-                  </Button>
                 </div>
               </form>
-            )}
           </div>
         </Card>
 

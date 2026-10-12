@@ -61,16 +61,25 @@ alter table public.cognitive_fingerprints
 create table if not exists public.ai_rate_limits (
   user_id uuid primary key references auth.users(id) on delete cascade,
   window_started_at timestamptz not null default now(),
-  request_count integer not null default 0 check (request_count >= 0)
+  request_count integer not null default 0 check (request_count >= 0),
+  day_started_at timestamptz not null default now(),
+  daily_count integer not null default 0 check (daily_count >= 0)
 );
+
+alter table public.ai_rate_limits
+  add column if not exists day_started_at timestamptz not null default now(),
+  add column if not exists daily_count integer not null default 0 check (daily_count >= 0);
 
 alter table public.ai_rate_limits enable row level security;
 revoke all on public.ai_rate_limits from anon, authenticated;
 
+drop function if exists public.consume_ai_quota(uuid, integer, integer);
+
 create or replace function public.consume_ai_quota(
   p_user_id uuid,
   p_limit integer,
-  p_window_seconds integer
+  p_window_seconds integer,
+  p_daily_limit integer
 )
 returns boolean
 language plpgsql
@@ -81,9 +90,10 @@ declare
   current_row public.ai_rate_limits%rowtype;
   safe_limit integer := greatest(1, least(p_limit, 120));
   safe_window integer := greatest(10, least(p_window_seconds, 3600));
+  safe_daily_limit integer := greatest(1, least(p_daily_limit, 10000));
 begin
-  insert into public.ai_rate_limits (user_id, window_started_at, request_count)
-  values (p_user_id, clock_timestamp(), 0)
+  insert into public.ai_rate_limits (user_id, window_started_at, request_count, day_started_at, daily_count)
+  values (p_user_id, clock_timestamp(), 0, clock_timestamp(), 0)
   on conflict (user_id) do nothing;
 
   select * into current_row
@@ -91,9 +101,20 @@ begin
   where user_id = p_user_id
   for update;
 
+  if current_row.day_started_at <= clock_timestamp() - interval '24 hours' then
+    update public.ai_rate_limits
+      set day_started_at = clock_timestamp(), daily_count = 0
+      where user_id = p_user_id;
+    current_row.daily_count := 0;
+  end if;
+
+  if current_row.daily_count >= safe_daily_limit then
+    return false;
+  end if;
+
   if current_row.window_started_at <= clock_timestamp() - make_interval(secs => safe_window) then
     update public.ai_rate_limits
-      set window_started_at = clock_timestamp(), request_count = 1
+      set window_started_at = clock_timestamp(), request_count = 1, daily_count = daily_count + 1
       where user_id = p_user_id;
     return true;
   end if;
@@ -103,11 +124,11 @@ begin
   end if;
 
   update public.ai_rate_limits
-    set request_count = request_count + 1
+    set request_count = request_count + 1, daily_count = daily_count + 1
     where user_id = p_user_id;
   return true;
 end;
 $$;
 
-revoke all on function public.consume_ai_quota(uuid, integer, integer) from public, anon, authenticated;
-grant execute on function public.consume_ai_quota(uuid, integer, integer) to service_role;
+revoke all on function public.consume_ai_quota(uuid, integer, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_ai_quota(uuid, integer, integer, integer) to service_role;

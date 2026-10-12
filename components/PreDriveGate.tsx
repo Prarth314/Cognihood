@@ -111,7 +111,9 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
                 <span>
                   <span className="block text-sm font-semibold">Enable optional cloud AI enhancement</span>
                   <span className="ui-caption block mt-1">
-                    A compressed camera frame will be sent to Google Gemini about every 2.5 seconds. Local-only monitoring remains available without this option.
+                    A compressed camera frame is sent through CogniHood's protected backend about every 15 seconds,
+                    increasing to every 6 or 4 seconds only while warning signals are active. Local-only monitoring
+                    remains available without this option.
                   </span>
                 </span>
               </label>
