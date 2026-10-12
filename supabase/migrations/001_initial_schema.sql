@@ -105,7 +105,7 @@ create policy "fingerprints_update_own"
   on public.cognitive_fingerprints for update
   using (auth.uid() = user_id);
 
--- Auto-create profile on sign-up (email or anonymous)
+-- Auto-create a profile for each email-authenticated account.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -128,8 +128,7 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Enable anonymous sign-in in Supabase Dashboard:
--- Authentication → Providers → Anonymous sign-ins → Enable
+-- Production policy: enable Email authentication only and require email confirmation.
 
 -- Optional: enable realtime sync for trip archives UI
 -- alter publication supabase_realtime add table public.trips;

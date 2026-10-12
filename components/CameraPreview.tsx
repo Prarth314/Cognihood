@@ -9,17 +9,18 @@ interface CameraPreviewProps {
   onLocalSnapshot: (snapshot: LocalFaceSnapshot) => void;
   isActive: boolean;
   remoteAnalysisEnabled?: boolean;
+  remoteAnalysisIntervalMs?: number;
   stateColor?: string;
 }
 
 const LOCAL_SAMPLE_MS = 100;
-const GEMINI_FRAME_MS = 2500;
 
 const CameraPreview: React.FC<CameraPreviewProps> = ({
   onFrame,
   onLocalSnapshot,
   isActive,
   remoteAnalysisEnabled = false,
+  remoteAnalysisIntervalMs = 15_000,
   stateColor,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -101,10 +102,10 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
           onFrame(base64);
         }
       }
-    }, GEMINI_FRAME_MS);
+    }, remoteAnalysisIntervalMs);
 
     return () => clearInterval(interval);
-  }, [isActive, onFrame, remoteAnalysisEnabled]);
+  }, [isActive, onFrame, remoteAnalysisEnabled, remoteAnalysisIntervalMs]);
 
   const trackingActive = landmarkerReady && landmarkerRef.current?.isFaceLandmarkerReady();
 
@@ -136,7 +137,9 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
 
         <div className="flex justify-end">
           <span className="ui-caption mono ui-surface px-2 py-1 rounded-md">
-            {remoteAnalysisEnabled ? '10Hz local · 0.4Hz cloud' : '10Hz · local only'}
+            {remoteAnalysisEnabled
+              ? `10Hz local · ${(1000 / remoteAnalysisIntervalMs).toFixed(2)}Hz cloud`
+              : '10Hz · local only'}
           </span>
         </div>
       </div>

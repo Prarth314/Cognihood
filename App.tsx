@@ -253,6 +253,11 @@ const App: React.FC = () => {
   const safetyColors = SAFETY_COLORS[safetyState];
   const defaultMetrics = { ear: 0.3, blinkRate: 12, closureDuration: 0.1, headPose: { pitch: 0, yaw: 0, roll: 0 }, stressLevel: 0, distractionLevel: 0, cognitiveLoad: 8 };
   const showCriticalOverlay = assessment?.state === SafetyState.CRITICAL || eligibility?.state === EligibilityState.INELIGIBLE;
+  const remoteAnalysisIntervalMs = showCriticalOverlay
+    ? 4_000
+    : safetyState === SafetyState.WARNING || eligibility?.state === EligibilityState.CAUTION
+      ? 6_000
+      : 15_000;
 
   const accessibilityToggle = (
     <Button
@@ -342,6 +347,7 @@ const App: React.FC = () => {
                     onFrame={handleFrame}
                     onLocalSnapshot={handleLocalSnapshot}
                     remoteAnalysisEnabled={remoteAnalysisEnabled}
+                    remoteAnalysisIntervalMs={remoteAnalysisIntervalMs}
                   />
                   <div className="absolute top-4 left-4 ui-surface p-4 rounded-lg pointer-events-none" aria-live="polite">
                     <div className="ui-caption font-medium mb-1">Safety index</div>

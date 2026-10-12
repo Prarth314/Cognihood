@@ -117,8 +117,9 @@ Deno.serve(async request => {
   });
   const { data: allowed, error: quotaError } = await admin.rpc('consume_ai_quota', {
     p_user_id: user.id,
-    p_limit: user.is_anonymous ? 12 : 30,
+    p_limit: 15,
     p_window_seconds: 60,
+    p_daily_limit: 2500,
   });
   if (quotaError) return response(request, 503, { error: 'Rate limiter unavailable.' });
   if (!allowed) return response(request, 429, { error: 'AI analysis rate limit reached.' });

@@ -13,7 +13,6 @@ interface AuthContextValue {
   supabaseReady: boolean;
   supabaseConnected: boolean;
   error: string | null;
-  signInAnonymously: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -80,18 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, [supabaseReady, onAuthenticated]);
 
-  const signInAnonymously = async () => {
-    setError(null);
-    const { error: err } = await getSupabase().auth.signInAnonymously();
-    if (err) {
-      if (err.message.includes('anonymous') || (err as { error_code?: string }).error_code === 'anonymous_provider_disabled') {
-        setError('Anonymous sign-in is disabled in Supabase. Enable it under Authentication → Providers → Anonymous, or use email sign-in below.');
-      } else {
-        setError(err.message);
-      }
-    }
-  };
-
   const signInWithEmail = async (email: string, password: string) => {
     setError(null);
     const { error: err } = await getSupabase().auth.signInWithPassword({ email, password });
@@ -119,7 +106,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supabaseReady,
         supabaseConnected,
         error,
-        signInAnonymously,
         signInWithEmail,
         signUpWithEmail,
         signOut,
