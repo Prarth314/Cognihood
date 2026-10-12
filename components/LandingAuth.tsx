@@ -154,7 +154,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
         </Card>
 
         <p className="ui-caption text-center">
-          Biometric analysis runs locally. Trip data syncs securely to your account.
+          Driver-state analysis is local by default. Optional cloud enhancement requires explicit consent before each trip.
         </p>
       </div>
     </div>

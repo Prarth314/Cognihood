@@ -8,6 +8,7 @@ interface CameraPreviewProps {
   onFrame: (base64: string) => void;
   onLocalSnapshot: (snapshot: LocalFaceSnapshot) => void;
   isActive: boolean;
+  remoteAnalysisEnabled?: boolean;
   stateColor?: string;
 }
 
@@ -18,12 +19,12 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   onFrame,
   onLocalSnapshot,
   isActive,
+  remoteAnalysisEnabled = false,
   stateColor,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<FaceLandmarkerModule | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [landmarkerReady, setLandmarkerReady] = useState(false);
   const lastLocalSampleRef = useRef(0);
   const onLocalSnapshotRef = useRef(onLocalSnapshot);
@@ -42,12 +43,19 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   }, []);
 
   useEffect(() => {
+    let acquiredStream: MediaStream | null = null;
+    let cancelled = false;
+
     async function setupCamera() {
       try {
         const s = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: 'user' },
         });
-        setStream(s);
+        if (cancelled) {
+          s.getTracks().forEach(track => track.stop());
+          return;
+        }
+        acquiredStream = s;
         if (videoRef.current) {
           videoRef.current.srcObject = s;
         }
@@ -56,7 +64,11 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       }
     }
     setupCamera();
-    return () => stream?.getTracks().forEach(t => t.stop());
+    return () => {
+      cancelled = true;
+      acquiredStream?.getTracks().forEach(track => track.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -78,7 +90,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   }, [isActive]);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || !remoteAnalysisEnabled) return;
 
     const interval = setInterval(() => {
       if (videoRef.current && canvasRef.current) {
@@ -92,7 +104,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
     }, GEMINI_FRAME_MS);
 
     return () => clearInterval(interval);
-  }, [isActive, onFrame]);
+  }, [isActive, onFrame, remoteAnalysisEnabled]);
 
   const trackingActive = landmarkerReady && landmarkerRef.current?.isFaceLandmarkerReady();
 
@@ -124,7 +136,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
 
         <div className="flex justify-end">
           <span className="ui-caption mono ui-surface px-2 py-1 rounded-md">
-            10Hz local · 0.4Hz cloud
+            {remoteAnalysisEnabled ? '10Hz local · 0.4Hz cloud' : '10Hz · local only'}
           </span>
         </div>
       </div>

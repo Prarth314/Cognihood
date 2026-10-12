@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import CameraPreview from './CameraPreview';
 import { LocalFaceSnapshot, PreDriveCheckResult } from '../types';
 import { evaluatePreDriveCheck, PRE_DRIVE_SCAN_MS } from '../services/preDriveCheck';
@@ -9,7 +9,7 @@ import Button from './ui/Button';
 import Badge from './ui/Badge';
 
 interface PreDriveGateProps {
-  onPassed: () => void;
+  onPassed: (remoteAnalysisEnabled: boolean) => void;
   onCancel: () => void;
 }
 
@@ -17,17 +17,13 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
   const [scanStarted] = useState(() => Date.now());
   const [check, setCheck] = useState<PreDriveCheckResult | null>(null);
   const [tick, setTick] = useState(0);
+  const [remoteAnalysisConsent, setRemoteAnalysisConsent] = useState(false);
   const bufferRef = React.useRef(new MetricsBuffer());
-  const passedRef = useRef(false);
 
   const handleSnapshot = (snapshot: LocalFaceSnapshot) => {
     bufferRef.current.add(snapshot);
     const result = evaluatePreDriveCheck(bufferRef.current.getInWindow(PRE_DRIVE_SCAN_MS + 5000), scanStarted);
     setCheck(result);
-    if (result.passed && !passedRef.current) {
-      passedRef.current = true;
-      setTimeout(onPassed, 1200);
-    }
   };
 
   const progress = Math.min(100, ((Date.now() - scanStarted) / PRE_DRIVE_SCAN_MS) * 100);
@@ -37,13 +33,9 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
       setTick(t => t + 1);
       const result = evaluatePreDriveCheck(bufferRef.current.getInWindow(PRE_DRIVE_SCAN_MS + 5000), scanStarted);
       setCheck(result);
-      if (result.passed && !passedRef.current) {
-        passedRef.current = true;
-        onPassed();
-      }
     }, 500);
     return () => clearInterval(interval);
-  }, [scanStarted, onPassed]);
+  }, [scanStarted]);
 
   void tick;
 
@@ -65,6 +57,7 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
             isActive
             onFrame={() => {}}
             onLocalSnapshot={handleSnapshot}
+            remoteAnalysisEnabled={false}
             stateColor="var(--primary)"
           />
         </div>
@@ -107,9 +100,25 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
           )}
 
           {check?.passed && (
-            <Button className="w-full" size="lg" onClick={onPassed}>
-              Begin trip monitoring
-            </Button>
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] p-4">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={remoteAnalysisConsent}
+                  onChange={event => setRemoteAnalysisConsent(event.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-semibold">Enable optional cloud AI enhancement</span>
+                  <span className="ui-caption block mt-1">
+                    A compressed camera frame will be sent to Google Gemini about every 2.5 seconds. Local-only monitoring remains available without this option.
+                  </span>
+                </span>
+              </label>
+              <Button className="w-full" size="lg" onClick={() => onPassed(remoteAnalysisConsent)}>
+                Begin {remoteAnalysisConsent ? 'enhanced' : 'local-only'} monitoring
+              </Button>
+            </div>
           )}
         </Card>
       </div>

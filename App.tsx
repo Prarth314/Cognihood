@@ -21,7 +21,6 @@ import { useAuth } from './contexts/AuthContext';
 import {
   SafetyAssessment,
   SafetyState,
-  NetworkEvent,
   TemporalAnalysis,
   EligibilityAssessment,
   EligibilityState,
@@ -37,8 +36,9 @@ import { EligibilityEngine } from './services/eligibilityEngine';
 import { TripSession } from './services/tripSession';
 import { saveTrip, getAllTrips, getBaseline, saveBaseline } from './services/tripStore';
 import { computeFingerprint } from './services/baselineService';
-import { startMotionListener, stopMotionListener, startSimulatedMotion } from './services/motionService';
+import { startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
+import { createLocalSafetyAssessment } from './services/localSafetyService';
 
 const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
   [SafetyState.SAFE]: { text: 'var(--success)', border: 'var(--success)' },
@@ -52,7 +52,7 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('landing');
   const [assessment, setAssessment] = useState<SafetyAssessment | null>(null);
   const [history, setHistory] = useState<SafetyAssessment[]>([]);
-  const [networkEvents, setNetworkEvents] = useState<NetworkEvent[]>([]);
+  const networkEvents = [];
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [temporalAnalysis, setTemporalAnalysis] = useState<TemporalAnalysis | null>(null);
@@ -60,6 +60,8 @@ const App: React.FC = () => {
   const [completedTrip, setCompletedTrip] = useState<TripRecord | null>(null);
   const [rerouteMsg, setRerouteMsg] = useState<string | null>(null);
   const [tripSaveError, setTripSaveError] = useState<string | null>(null);
+  const [remoteAnalysisEnabled, setRemoteAnalysisEnabled] = useState(false);
+  const [remoteAnalysisError, setRemoteAnalysisError] = useState<string | null>(null);
 
   const metricsBufferRef = useRef(new MetricsBuffer());
   const eligibilityEngineRef = useRef(new EligibilityEngine());
@@ -68,12 +70,11 @@ const App: React.FC = () => {
   const assessmentRef = useRef<SafetyAssessment | null>(null);
   const lastUiUpdateRef = useRef(0);
   const lastEligibilityRef = useRef<EligibilityState | null>(null);
-  const stopSimMotionRef = useRef<(() => void) | null>(null);
   assessmentRef.current = assessment;
 
   const endTrip = useCallback(async () => {
     const session = tripSessionRef.current;
-    if (!session || !user) return;
+    if (!session || !user) return true;
 
     setTripSaveError(null);
     try {
@@ -87,69 +88,44 @@ const App: React.FC = () => {
 
       tripSessionRef.current = null;
       setCompletedTrip(trip);
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to save trip to Supabase';
       setTripSaveError(msg);
       console.error(msg);
+      return false;
     }
   }, [user]);
 
   const leaveDashboard = useCallback(async () => {
     stopMotionListener();
-    stopSimMotionRef.current?.();
-    stopSimMotionRef.current = null;
-    await endTrip();
+    const saved = await endTrip();
+    if (!saved) return false;
     metricsBufferRef.current.clear();
     eligibilityEngineRef.current.reset();
     setTemporalAnalysis(null);
     setEligibility(null);
     setAssessment(null);
     setHistory([]);
+    setRemoteAnalysisEnabled(false);
+    setRemoteAnalysisError(null);
     lastEligibilityRef.current = null;
+    return true;
   }, [endTrip]);
 
   useEffect(() => {
     if (currentView !== 'dashboard' || !user) return;
 
     tripSessionRef.current = new TripSession(user.id);
-    const motionOk = startMotionListener((type, g) => {
+    startMotionListener((type, g) => {
       if (type === 'brake') tripSessionRef.current?.recordHarshBrake(g);
       else tripSessionRef.current?.recordHarshAccel(g);
     });
-    if (!motionOk) {
-      stopSimMotionRef.current = startSimulatedMotion((type, g) => {
-        if (type === 'brake') tripSessionRef.current?.recordHarshBrake(g);
-        else tripSessionRef.current?.recordHarshAccel(g);
-      });
-    }
 
     return () => {
       stopMotionListener();
-      stopSimMotionRef.current?.();
     };
   }, [currentView, user]);
-
-  useEffect(() => {
-    if (currentView !== 'dashboard') return;
-    const interval = setInterval(() => {
-      if (Math.random() > 0.8) {
-        const types: NetworkEvent['type'][] = ['FATIGUE_BEACON', 'EMERGENCY_CORRIDOR', 'GHOST_OBJECT', 'DE_ESCALATION'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        setNetworkEvents(prev => [{
-          id: `ev_${Date.now()}`,
-          type,
-          originId: `V_${Math.floor(Math.random() * 999)}`,
-          location: { lat: 34.05, lng: -118.24 },
-          severity: Math.random() * 100,
-          message: type === 'EMERGENCY_CORRIDOR' ? 'Ambulance path detected 1.2km behind.' :
-            type === 'FATIGUE_BEACON' ? 'Preceding vehicle shows high instability markers.' :
-            type === 'GHOST_OBJECT' ? 'Hazard detected by lead vehicle in blind corner.' :
-            'Overtake signal received: Neutral intent.',
-        }, ...prev].slice(0, 5));
-      }
-    }, 12000);
-    return () => clearInterval(interval);
-  }, [currentView]);
 
   const runTemporalPipeline = useCallback((gemini?: SafetyAssessment | null) => {
     const snapshots = metricsBufferRef.current.getInWindow(60_000);
@@ -181,24 +157,32 @@ const App: React.FC = () => {
     lastUiUpdateRef.current = now;
 
     if (assessmentRef.current) {
+      const localAssessment = createLocalSafetyAssessment(temporal, snapshot, assessmentRef.current);
+      const base = remoteAnalysisEnabled && !remoteAnalysisError
+        ? assessmentRef.current
+        : localAssessment;
       const updated: SafetyAssessment = {
-        ...assessmentRef.current,
+        ...base,
         metrics: snapshot.faceDetected ? {
-          ...assessmentRef.current.metrics,
+          ...base.metrics,
           ear: snapshot.ear,
           headPose: snapshot.headPose,
-          blinkRate: temporal.blinkRatePerMin || assessmentRef.current.metrics.blinkRate,
-        } : assessmentRef.current.metrics,
+          blinkRate: temporal.blinkRatePerMin || base.metrics.blinkRate,
+        } : base.metrics,
         temporal,
         eligibility: elig,
       };
       setAssessment(updated);
       tripSessionRef.current?.recordAssessment(updated, temporal);
     } else if (temporal.sampleCount > 0) {
+      const localAssessment = createLocalSafetyAssessment(temporal, snapshot);
+      const full = { ...localAssessment, eligibility: elig };
+      setAssessment(full);
+      assessmentRef.current = full;
       setTemporalAnalysis(temporal);
       setEligibility(elig);
     }
-  }, [currentView, runTemporalPipeline]);
+  }, [currentView, runTemporalPipeline, remoteAnalysisEnabled, remoteAnalysisError]);
 
   const handleFrame = useCallback(async (base64: string) => {
     if (isAnalyzing || currentView !== 'dashboard') return;
@@ -209,11 +193,23 @@ const App: React.FC = () => {
       const result = await analyzeDrivingEnvironmentLazy(base64, history, temporal, latestSnapshotRef.current);
       const { temporal: updatedTemporal, elig } = runTemporalPipeline(result);
       const full = { ...result, temporal: updatedTemporal, eligibility: elig };
+      setRemoteAnalysisError(null);
       setAssessment(full);
       setHistory(prev => [...prev.slice(-20), full]);
       tripSessionRef.current?.recordAssessment(full, updatedTemporal);
     } catch (err) {
-      console.error('Frame analysis error', err);
+      const message = err instanceof Error ? err.message : 'Remote analysis unavailable';
+      setRemoteAnalysisError(message);
+      const snapshots = metricsBufferRef.current.getInWindow(60_000);
+      const temporal = computeTemporalAnalysis(snapshots, assessmentRef.current?.metrics);
+      const local = createLocalSafetyAssessment(temporal, latestSnapshotRef.current, assessmentRef.current);
+      const elig = eligibilityEngineRef.current.evaluate(temporal, local);
+      const fallback = { ...local, eligibility: elig };
+      setAssessment(fallback);
+      assessmentRef.current = fallback;
+      setTemporalAnalysis(temporal);
+      setEligibility(elig);
+      console.error('Remote frame analysis unavailable; local monitoring remains active.', err);
     } finally {
       setIsAnalyzing(false);
     }
@@ -231,6 +227,10 @@ const App: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    if (currentView === 'dashboard') {
+      const saved = await leaveDashboard();
+      if (!saved) return;
+    }
     await signOut();
     setCurrentView('landing');
   };
@@ -241,7 +241,9 @@ const App: React.FC = () => {
       return;
     }
     if (currentView === 'dashboard' && view !== 'dashboard') {
-      leaveDashboard().then(() => setCurrentView(view));
+      leaveDashboard().then(saved => {
+        if (saved) setCurrentView(view);
+      });
       return;
     }
     setCurrentView(view);
@@ -298,7 +300,11 @@ const App: React.FC = () => {
 
         {currentView === 'predrive' && (
           <PreDriveGate
-            onPassed={() => setCurrentView('dashboard')}
+            onPassed={(enabled) => {
+              setRemoteAnalysisEnabled(enabled);
+              setRemoteAnalysisError(null);
+              setCurrentView('dashboard');
+            }}
             onCancel={() => setCurrentView('selector')}
           />
         )}
@@ -335,6 +341,7 @@ const App: React.FC = () => {
                     isActive
                     onFrame={handleFrame}
                     onLocalSnapshot={handleLocalSnapshot}
+                    remoteAnalysisEnabled={remoteAnalysisEnabled}
                   />
                   <div className="absolute top-4 left-4 ui-surface p-4 rounded-lg pointer-events-none" aria-live="polite">
                     <div className="ui-caption font-medium mb-1">Safety index</div>
@@ -349,7 +356,18 @@ const App: React.FC = () => {
                   )}
                 </div>
                 <div className="ui-card">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <Badge tone={assessment?.analysisSource === 'REMOTE' ? 'primary' : 'success'}>
+                      {assessment?.analysisSource === 'REMOTE' ? 'Cloud-enhanced' : 'Local monitoring'}
+                    </Badge>
+                    {remoteAnalysisError && <Badge tone="warning">Cloud analysis unavailable</Badge>}
+                  </div>
                   <p className="ui-body">{assessment?.explanation || 'Establishing temporal baseline…'}</p>
+                  {remoteAnalysisError && (
+                    <p className="ui-caption mt-2" role="status">
+                      Local safety monitoring remains active. No unavailable cloud result is being treated as safe.
+                    </p>
+                  )}
                 </div>
               </div>
 

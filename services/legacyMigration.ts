@@ -49,8 +49,31 @@ async function readLegacyBaseline(): Promise<CognitiveFingerprint | null> {
   }
 }
 
+export async function getLegacyMigrationSummary(): Promise<{ trips: number; hasBaseline: boolean }> {
+  const [trips, baseline] = await Promise.all([readLegacyTrips(), readLegacyBaseline()]);
+  return { trips: trips.length, hasBaseline: Boolean(baseline) };
+}
+
+async function clearLegacyData(): Promise<void> {
+  const db = await openLegacyDb();
+  const stores = [TRIPS_STORE, BASELINE_STORE].filter(name => db.objectStoreNames.contains(name));
+  if (stores.length === 0) {
+    db.close();
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(stores, 'readwrite');
+    for (const storeName of stores) tx.objectStore(storeName).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+  db.close();
+}
+
 export async function migrateLegacyIndexedDbToSupabase(
-  userId: string
+  userId: string,
+  deleteAfterSuccess = true
 ): Promise<{ tripsMigrated: number; baselineMigrated: boolean }> {
   if (localStorage.getItem(MIGRATION_KEY) === userId) {
     return { tripsMigrated: 0, baselineMigrated: false };
@@ -73,6 +96,7 @@ export async function migrateLegacyIndexedDbToSupabase(
 
   if (migrated > 0 || baselineMigrated) {
     localStorage.setItem(MIGRATION_KEY, userId);
+    if (deleteAfterSuccess) await clearLegacyData();
   }
 
   return { tripsMigrated: migrated, baselineMigrated };

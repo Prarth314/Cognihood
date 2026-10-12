@@ -90,6 +90,7 @@ export interface SafetyAssessment {
   moodTrack?: string;
   temporal?: TemporalAnalysis;
   eligibility?: EligibilityAssessment;
+  analysisSource?: 'LOCAL' | 'REMOTE';
 }
 
 export interface Poi {
