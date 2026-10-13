@@ -15,6 +15,15 @@ let landmarker: FaceLandmarker | null = null;
 let initPromise: Promise<boolean> | null = null;
 let lastEar = 0.3;
 let wasClosed = false;
+let calibratedEarThreshold = EAR_CLOSED_THRESHOLD;
+let openEarSamples: number[] = [];
+
+export function resetFaceTrackingState(): void {
+  lastEar = 0.3;
+  wasClosed = false;
+  calibratedEarThreshold = EAR_CLOSED_THRESHOLD;
+  openEarSamples = [];
+}
 
 function dist(a: { x: number; y: number; z?: number }, b: { x: number; y: number; z?: number }): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
@@ -78,7 +87,7 @@ export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number
   const base: LocalFaceSnapshot = {
     timestamp: timestampMs,
     ear: lastEar,
-    eyesClosed: lastEar < EAR_CLOSED_THRESHOLD,
+    eyesClosed: lastEar < calibratedEarThreshold,
     blinkDetected: false,
     headPose: { pitch: 0, yaw: 0, roll: 0 },
     faceDetected: false,
@@ -97,7 +106,13 @@ export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number
     lastEar = ear;
 
     const blinkScore = getBlinkScore(result);
-    const eyesClosed = ear < EAR_CLOSED_THRESHOLD || blinkScore > BLINK_BLEND_THRESHOLD;
+    if (blinkScore < 0.2 && ear > 0.12 && openEarSamples.length < 50) {
+      openEarSamples.push(ear);
+      const sorted = [...openEarSamples].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      calibratedEarThreshold = Math.max(0.14, Math.min(0.25, median * 0.6));
+    }
+    const eyesClosed = ear < calibratedEarThreshold || blinkScore > BLINK_BLEND_THRESHOLD;
     const blinkDetected = (wasClosed && !eyesClosed) || (blinkScore > BLINK_BLEND_THRESHOLD && !wasClosed);
     wasClosed = eyesClosed;
 

@@ -15,7 +15,7 @@ const STEPS: Step[] = [
   {
     id: 'welcome',
     title: 'Welcome to CogniHood',
-    body: 'Monitor driver alertness in real time, detect highway hypnosis, and review trip performance synced to the cloud.',
+    body: 'Review camera-derived attention-support indicators in real time. They are estimates, not fitness-to-drive determinations.',
     views: ['selector'],
   },
   {
@@ -33,7 +33,7 @@ const STEPS: Step[] = [
   {
     id: 'archives',
     title: 'Track improvement over time',
-    body: 'Trip archives show safety trends, coaching tips, and national benchmarks. Export CogniLogs anytime.',
+    body: 'Session archives show indicator trends, coaching notes, and clearly labeled synthetic prototype comparisons.',
     views: ['records', 'selector'],
   },
 ];
@@ -50,15 +50,16 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ currentView }) => {
     if (localStorage.getItem(STORAGE_KEY) === 'true') return;
     if (currentView === 'landing') return;
     setVisible(true);
+    setStepIndex(0);
   }, [currentView]);
 
   if (!visible) return null;
 
   const applicable = STEPS.filter(s => s.views.includes(currentView));
-  const step = applicable[stepIndex] ?? STEPS[stepIndex];
+  const step = applicable[stepIndex];
   if (!step) return null;
 
-  const isLast = stepIndex >= STEPS.length - 1;
+  const isLast = stepIndex >= applicable.length - 1;
 
   const finish = () => {
     localStorage.setItem(STORAGE_KEY, 'true');
@@ -76,7 +77,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ currentView }) => {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="ui-caption text-[var(--primary)] font-medium">
-              Step {stepIndex + 1} of {STEPS.length}
+              Step {stepIndex + 1} of {applicable.length}
             </p>
             <h2 id="onboarding-title" className="ui-h2 mt-1">{step.title}</h2>
           </div>

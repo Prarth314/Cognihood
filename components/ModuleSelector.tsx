@@ -5,14 +5,15 @@ interface ModuleSelectorProps {
   cogniId?: string | null;
   onStartTrip: () => void;
   onViewArchives: () => void;
+  onDeleteAccount: () => void;
 }
 
-const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, onViewArchives }) => (
+const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, onViewArchives, onDeleteAccount }) => (
   <div className="flex flex-col gap-8 max-w-3xl mx-auto w-full">
     <div className="text-center space-y-2">
       {cogniId && <p className="ui-caption mono text-[var(--primary)]">{cogniId}</p>}
       <h1 className="ui-display">Welcome back</h1>
-      <p className="ui-body">Choose a module to get started with driver safety monitoring.</p>
+      <p className="ui-body">Choose a module for attention-support monitoring. CogniHood does not determine fitness to drive.</p>
     </div>
 
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -22,7 +23,7 @@ const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, o
             <i className="fas fa-gauge-high" aria-hidden="true" />
           </div>
           <h2 className="ui-h2 mb-2">Live monitoring</h2>
-          <p className="ui-body">Real-time eligibility, hypnosis detection, and in-trip coaching.</p>
+          <p className="ui-body">Camera-derived attention indicators and non-vehicle-control coaching.</p>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] mt-4 group-hover:gap-2 transition-all">
             Start pre-drive check <i className="fas fa-arrow-right text-xs" aria-hidden="true" />
           </span>
@@ -35,11 +36,17 @@ const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, o
             <i className="fas fa-chart-line" aria-hidden="true" />
           </div>
           <h2 className="ui-h2 mb-2">Trip archives</h2>
-          <p className="ui-body">Review past trips, coaching insights, and national benchmarks.</p>
+          <p className="ui-body">Review past sessions, coaching notes, and prototype reference comparisons.</p>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-[var(--secondary)] mt-4 group-hover:gap-2 transition-all">
             View history <i className="fas fa-arrow-right text-xs" aria-hidden="true" />
           </span>
         </Card>
+      </button>
+    </div>
+    <div className="text-center space-y-2">
+      <p className="ui-caption">Account data can be exported from Trip archives.</p>
+      <button type="button" className="text-sm text-[var(--error)] underline underline-offset-4" onClick={onDeleteAccount}>
+        Permanently delete my account and cloud data
       </button>
     </div>
   </div>

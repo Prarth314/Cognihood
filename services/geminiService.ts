@@ -54,7 +54,7 @@ function validateRemoteAnalysis(value: unknown): RemoteAnalysis {
         yaw: clampNumber(pose.yaw, -90, 90),
         roll: clampNumber(pose.roll, -90, 90),
       },
-      stressLevel: clampNumber(metrics.stressLevel, 0, 100),
+      stressLevel: 0,
       distractionLevel: clampNumber(metrics.distractionLevel, 0, 100),
     },
     cognitiveLoad: clampNumber(input.cognitiveLoad, 0, 100),
@@ -114,9 +114,7 @@ export async function analyzeDrivingEnvironment(
 
   const penalty =
     metrics.distractionLevel * 0.55 +
-    metrics.stressLevel * 0.25 +
     metrics.cognitiveLoad * 0.15 +
-    result.fingerprintDeviation * 0.05 +
     (temporal?.perclos30 ?? 0) * 0.35 +
     (temporal?.highwayHypnosisIndex ?? 0) * 0.2;
   const score = clampNumber(100 - penalty, 0, 100, history.at(-1)?.score ?? 50);

@@ -27,6 +27,8 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<FaceLandmarkerModule | null>(null);
   const [landmarkerReady, setLandmarkerReady] = useState(false);
+  const [landmarkerFailed, setLandmarkerFailed] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const lastLocalSampleRef = useRef(0);
   const onLocalSnapshotRef = useRef(onLocalSnapshot);
   onLocalSnapshotRef.current = onLocalSnapshot;
@@ -37,9 +39,13 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       if (cancelled) return;
       landmarkerRef.current = mod;
       mod.initFaceLandmarker().then(ok => {
-        if (!cancelled) setLandmarkerReady(ok);
+        if (!cancelled) {
+          setLandmarkerReady(ok);
+          setLandmarkerFailed(!ok);
+          if (ok) mod.resetFaceTrackingState();
+        }
       });
-    });
+    }).catch(() => { if (!cancelled) setLandmarkerFailed(true); });
     return () => { cancelled = true; };
   }, []);
 
@@ -49,6 +55,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
 
     async function setupCamera() {
       try {
+        setCameraError(null);
         const s = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: 'user' },
         });
@@ -62,15 +69,47 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
         }
       } catch (err) {
         console.error('Error accessing camera', err);
+        setCameraError('Camera access failed. Check browser permissions and reload before monitoring.');
       }
     }
+    const handleVisibility = () => {
+      acquiredStream?.getVideoTracks().forEach(track => { track.enabled = !document.hidden; });
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
     setupCamera();
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       cancelled = true;
       acquiredStream?.getTracks().forEach(track => track.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isActive) return;
+    type WakeLockSentinel = { release: () => Promise<void> };
+    let wakeLock: WakeLockSentinel | null = null;
+    let cancelled = false;
+    const acquire = async () => {
+      const wakeLockApi = (navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<WakeLockSentinel> } }).wakeLock;
+      if (!wakeLockApi || document.hidden) return;
+      try {
+        const lock = await wakeLockApi.request('screen');
+        if (cancelled) await lock.release();
+        else wakeLock = lock;
+      } catch {
+        // Monitoring still works while the page remains active; the display may sleep.
+      }
+    };
+    const handleVisibility = () => { if (!document.hidden && !wakeLock) void acquire(); };
+    void acquire();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      void wakeLock?.release();
+    };
+  }, [isActive]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -94,7 +133,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
     if (!isActive || !remoteAnalysisEnabled) return;
 
     const interval = setInterval(() => {
-      if (videoRef.current && canvasRef.current) {
+      if (!document.hidden && videoRef.current && videoRef.current.readyState >= 2 && canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d');
         if (ctx) {
           ctx.drawImage(videoRef.current, 0, 0, 640, 480);
@@ -127,11 +166,11 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
         <div className="flex justify-between items-start gap-2">
           <Badge tone={trackingActive ? 'success' : 'neutral'}>
-            {trackingActive ? 'Face tracking active' : 'Loading face model…'}
+            {trackingActive ? 'Face tracking active' : landmarkerFailed ? 'Face model unavailable' : 'Loading face model…'}
           </Badge>
           <div className="flex items-center gap-1.5 ui-surface px-2 py-1 rounded-md">
             <span className="ui-status-dot ui-status-error" aria-hidden="true" />
-            <span className="ui-caption">Recording</span>
+            <span className="ui-caption">Camera active · not recorded</span>
           </div>
         </div>
 
@@ -143,6 +182,11 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
           </span>
         </div>
       </div>
+      {cameraError && (
+        <div className="absolute inset-x-3 bottom-3 ui-surface p-3 rounded-md text-sm text-[var(--error)]" role="alert">
+          {cameraError}
+        </div>
+      )}
     </div>
   );
 };

@@ -11,12 +11,11 @@ export function generateCoachingTips(trip: TripRecord): CoachingTip[] {
   for (const ev of trip.events) {
     switch (ev.type) {
       case 'HARSH_BRAKE': {
-        const delay = ev.metadata?.reactionDelaySec ?? 1.2;
         tips.push(tip(
           `tip_${ev.id}`,
           'fa-gauge-high',
           'Brake Modulation',
-          `Brake onset was ~${delay.toFixed(1)}s later than your safe baseline. Release throttle earlier before curves or traffic changes to avoid ${ev.metadata?.decelG?.toFixed(1) ?? '0.4'}g deceleration peaks.`,
+          `A phone-motion change was classified as a possible braking event (${ev.metadata?.decelG?.toFixed(1) ?? 'unknown'}g estimate). Review it cautiously because browser motion data is not vehicle-calibrated.`,
           ev.id
         ));
         break;
@@ -26,7 +25,7 @@ export function generateCoachingTips(trip: TripRecord): CoachingTip[] {
           `tip_${ev.id}`,
           'fa-bolt',
           'Smoother Acceleration',
-          'Aggressive throttle input detected. Gradual acceleration improves stability and reduces cognitive load during merges.',
+          'A phone-motion change was classified as possible acceleration. Browser motion data is not vehicle-calibrated, so treat this as an estimate.',
           ev.id
         ));
         break;
@@ -34,8 +33,8 @@ export function generateCoachingTips(trip: TripRecord): CoachingTip[] {
         tips.push(tip(
           `tip_${ev.id}`,
           'fa-road',
-          'Highway Hypnosis',
-          `Gaze stagnation lasted ${ev.metadata?.durationSec?.toFixed(0) ?? '30'}s. Take a micro-break every 45–60 minutes on monotonous stretches.`,
+          'Low-engagement pattern',
+          `Limited head-pose variation lasted ${ev.metadata?.durationSec?.toFixed(0) ?? '30'}s. If you feel tired or unfocused, stop somewhere safe and rest.`,
           ev.id
         ));
         break;
@@ -62,7 +61,7 @@ export function generateCoachingTips(trip: TripRecord): CoachingTip[] {
           `tip_${ev.id}`,
           'fa-shield-virus',
           'Atypical Driving Pattern',
-          'This trip deviated significantly from your personal baseline and national norms. Review whether fatigue, stress, or distraction was a factor.',
+          'This session differed from your personal reference. Review the raw events and context rather than treating this as a diagnosis or driving judgment.',
           ev.id
         ));
         break;
@@ -80,7 +79,7 @@ export function generateCoachingTips(trip: TripRecord): CoachingTip[] {
           `tip_${ev.id}`,
           'fa-moon',
           'Fatigue Management',
-          `PERCLOS peaked at ${ev.metadata?.perclos?.toFixed(0) ?? '20'}%. Consider caffeine, ventilation, or a 15-minute rest.`,
+          `The estimated eye-closure ratio reached ${ev.metadata?.perclos?.toFixed(0) ?? '20'}%. If you feel drowsy, stop in a safe location and rest; do not rely on this estimate alone.`,
           ev.id
         ));
         break;
@@ -108,11 +107,6 @@ export function formatDuration(ms: number): string {
 
 export function formatTripDate(ts: number): string {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).toUpperCase();
-}
-
-export function estimateDistanceMi(durationMs: number): number {
-  const hours = durationMs / 3_600_000;
-  return Math.round(hours * 45 * 10) / 10;
 }
 
 export function cogLoadFromScore(avgScore: number, avgCognitive: number): 'LOW' | 'MED' | 'HIGH' {

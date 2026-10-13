@@ -7,7 +7,7 @@ import Badge from './ui/Badge';
 
 const InterventionPanel: React.FC<{ assessment: SafetyAssessment | null }> = ({ assessment }) => {
   const [playing, setPlaying] = useState(false);
-  const text = assessment?.intervention || 'Optimizing cabin atmosphere for your current cognitive state.';
+  const text = assessment?.intervention || 'No coaching recommendation is active. Continue attentive driving.';
 
   const handlePlay = async () => {
     setPlaying(true);
@@ -41,7 +41,7 @@ const InterventionPanel: React.FC<{ assessment: SafetyAssessment | null }> = ({ 
           >
             <i className={cnIcon(playing ? 'fa-volume-high' : 'fa-play')} aria-hidden="true" />
           </Button>
-          <div className="flex-1 ui-progress">
+          <div className="flex-1 ui-progress" role="progressbar" aria-label="Coaching audio progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={playing ? 100 : 33}>
             <div
               className="ui-progress-bar"
               style={{
@@ -54,11 +54,7 @@ const InterventionPanel: React.FC<{ assessment: SafetyAssessment | null }> = ({ 
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 ui-caption">
-        <span className="flex items-center gap-1.5"><i className="fas fa-lungs" aria-hidden="true" /> Guided breath</span>
-        <span className="flex items-center gap-1.5"><i className="fas fa-music" aria-hidden="true" /> Focus audio</span>
-        <span className="flex items-center gap-1.5"><i className="fas fa-temperature-half" aria-hidden="true" /> Cabin 68°F</span>
-      </div>
+      <p className="ui-caption">Audio coaching only. CogniHood does not control the vehicle or cabin systems.</p>
     </Card>
   );
 };

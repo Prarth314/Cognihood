@@ -3,7 +3,6 @@ import { DriverMetrics, LocalFaceSnapshot, TemporalAnalysis } from '../types';
 
 const WINDOW_30S = 30_000;
 const WINDOW_60S = 60_000;
-const EAR_CLOSED_THRESHOLD = 0.18;
 const STAGNATION_VARIANCE_THRESHOLD = 2.5;
 
 function variance(values: number[]): number {
@@ -13,9 +12,10 @@ function variance(values: number[]): number {
 }
 
 function computePerclos(snapshots: LocalFaceSnapshot[]): number {
-  if (snapshots.length === 0) return 0;
-  const closed = snapshots.filter(s => s.eyesClosed || s.ear < EAR_CLOSED_THRESHOLD).length;
-  return (closed / snapshots.length) * 100;
+  const valid = snapshots.filter(s => s.faceDetected);
+  if (valid.length === 0) return 0;
+  const closed = valid.filter(s => s.eyesClosed).length;
+  return (closed / valid.length) * 100;
 }
 
 function computeBlinkRate(snapshots: LocalFaceSnapshot[]): number {
@@ -49,7 +49,7 @@ function computeMonotonyDuration(snapshots: LocalFaceSnapshot[]): number {
   for (let i = 1; i < snapshots.length; i++) {
     const prev = snapshots[i - 1];
     const curr = snapshots[i];
-    if (!curr.faceDetected || curr.eyesClosed) {
+    if (!prev.faceDetected || !curr.faceDetected || curr.eyesClosed) {
       streakStart = null;
       continue;
     }
@@ -105,9 +105,8 @@ export function computeTemporalAnalysis(
   const perclos60 = computePerclos(window60);
   const blinkRatePerMin = computeBlinkRate(window30);
   const gazeStagnation = computeGazeStagnation(window30);
-  const headPoseVariance = variance(
-    window30.filter(s => s.faceDetected).map(s => s.headPose.yaw + s.headPose.pitch)
-  );
+  const validPoses = window30.filter(s => s.faceDetected).map(s => s.headPose);
+  const headPoseVariance = variance(validPoses.map(p => p.yaw)) + variance(validPoses.map(p => p.pitch));
   const monotonyDurationSec = computeMonotonyDuration(window30);
   const faceDetectionRate = window30.length > 0
     ? (window30.filter(s => s.faceDetected).length / window30.length) * 100

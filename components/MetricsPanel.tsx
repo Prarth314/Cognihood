@@ -65,7 +65,6 @@ const MetricsPanel: React.FC<MetricsPanelProps> = ({ metrics, temporal }) => (
       <MetricRow label="Eye opening (EAR)" value={metrics.ear.toFixed(3)} percent={metrics.ear * 300} />
       <MetricRow label="Blink frequency" value={metrics.blinkRate.toFixed(1)} unit="/min" percent={Math.min(100, metrics.blinkRate * 4)} />
       <MetricRow label="Closure duration" value={metrics.closureDuration.toFixed(2)} unit="s" percent={Math.min(100, metrics.closureDuration * 40)} warnAt={60} />
-      <MetricRow label="Stress index" value={metrics.stressLevel} unit="%" percent={metrics.stressLevel} warnAt={70} />
       <MetricRow label="Distraction" value={metrics.distractionLevel} unit="%" percent={metrics.distractionLevel} warnAt={50} />
     </div>
 

@@ -20,6 +20,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     user,
     signInWithEmail,
     signUpWithEmail,
+    sendPasswordReset,
     clearError,
   } = useAuth();
 
@@ -27,6 +28,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (user) onAuthenticated();
@@ -36,9 +38,32 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     e.preventDefault();
     setSubmitting(true);
     clearError();
-    if (isSignUp) await signUpWithEmail(email, password);
-    else await signInWithEmail(email, password);
-    setSubmitting(false);
+    setNotice(null);
+    try {
+      if (isSignUp) {
+        await signUpWithEmail(email, password);
+        setNotice('If signup succeeded, check your email to confirm the account before signing in.');
+      } else {
+        await signInWithEmail(email, password);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setNotice('Enter your email address first.');
+      return;
+    }
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      await sendPasswordReset(email);
+      setNotice('If the account exists, a password-reset email has been sent.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -92,6 +117,11 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                 <p className="text-sm text-[var(--error)]">{error}</p>
               </div>
             )}
+            {notice && (
+              <div className="p-3 rounded-lg bg-[var(--primary-muted)] border border-[var(--primary)]/20" role="status">
+                <p className="text-sm">{notice}</p>
+              </div>
+            )}
 
             <form onSubmit={handleEmailAuth} className="space-y-4">
                 <Input
@@ -120,14 +150,21 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   <Button type="button" variant="ghost" onClick={() => setIsSignUp(!isSignUp)}>
                     {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
                   </Button>
+                  {!isSignUp && (
+                    <Button type="button" variant="ghost" onClick={handlePasswordReset} disabled={submitting}>
+                      Forgot password?
+                    </Button>
+                  )}
                 </div>
               </form>
           </div>
         </Card>
 
-        <p className="ui-caption text-center">
-          Driver-state analysis is local by default. Optional cloud enhancement requires explicit consent before each trip.
-        </p>
+        <div className="ui-caption text-center space-y-2">
+          <p>Camera-derived attention analysis is local by default. Optional cloud enhancement requires explicit consent before each trip.</p>
+          <p>By creating an account you acknowledge this development build is not a medical device or a fitness-to-drive determination.</p>
+          <p><a className="underline" href="/privacy.html" target="_blank" rel="noreferrer">Privacy notice</a> · <a className="underline" href="/terms.html" target="_blank" rel="noreferrer">Development terms</a></p>
+        </div>
       </div>
     </div>
   );

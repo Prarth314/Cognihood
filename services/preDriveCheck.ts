@@ -76,7 +76,7 @@ export function evaluatePreDriveCheck(
     perclos: temporal.perclos30,
     faceDetectionRate: temporal.faceDetectionRate,
     eligibility: EligibilityState.ELIGIBLE,
-    message: 'Pre-drive check passed. You are cleared to begin monitoring.',
+    message: 'Camera signal check passed. Monitoring can begin. This is not a fitness-to-drive determination.',
     scanDurationSec,
   };
 }

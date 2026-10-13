@@ -2,6 +2,9 @@
   "name": "cognihood-driver-safety-system",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": ">=22 <25"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "security:audit": "npm audit --omit=dev"
+    "security:audit": "npm audit --omit=dev",
+    "check": "npm run typecheck && npm test && npm run build && npm run security:audit"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^7.3.1",

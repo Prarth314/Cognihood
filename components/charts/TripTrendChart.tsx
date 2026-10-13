@@ -108,7 +108,7 @@ const TripTrendChart: React.FC<TripTrendChartProps> = ({ trips, maxBars = 12 }) 
           <p className="text-sm font-semibold">{recent.reduce((s, t) => s + t.incidents, 0)}</p>
         </div>
         <div>
-          <p className="ui-caption">National % (avg)</p>
+          <p className="ui-caption">Prototype reference (avg)</p>
           <p className="text-sm font-semibold text-[var(--primary)]">
             {Math.round(recent.reduce((s, t) => s + t.nationalPercentile, 0) / recent.length)}
           </p>

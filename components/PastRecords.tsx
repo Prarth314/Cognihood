@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { TripRecord, AggregateStats } from '../types';
-import { getAllTrips, getBaseline, downloadCogniLogs, saveBaseline } from '../services/tripStore';
-import { computeFingerprint, computeAggregateStats } from '../services/baselineService';
+import { getAllTrips, getBaseline, downloadCogniLogs } from '../services/tripStore';
+import { computeAggregateStats } from '../services/baselineService';
 import { formatDuration, formatTripDate } from '../services/coachingService';
 import { useAuth } from '../contexts/AuthContext';
 import { useTripsRealtime } from '../hooks/useTripsRealtime';
@@ -54,10 +54,8 @@ const PastRecords: React.FC = () => {
     try {
       const all = await getAllTrips(user.id);
       const baseline = await getBaseline(user.id);
-      const fp = computeFingerprint(all, user.id);
-      if (fp) await saveBaseline(fp);
       setTrips(all);
-      setStats(computeAggregateStats(all, fp));
+      setStats(computeAggregateStats(all, baseline));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load trips');
     } finally {
@@ -100,7 +98,7 @@ const PastRecords: React.FC = () => {
         <MetricCard label="Global safety rating" value={stats ? `${stats.globalSafetyRating.toFixed(1)}%` : '—'} tone="success" />
         <MetricCard label="Fingerprint deviations" value={stats ? stats.fingerprintDeviations.toFixed(2) : '0.00'} tone="warning" />
         <MetricCard
-          label="National percentile (avg)"
+          label="Prototype reference score (avg)"
           value={trips.length ? Math.round(trips.reduce((s, t) => s + t.nationalPercentile, 0) / trips.length) : '—'}
           tone="primary"
         />
@@ -124,7 +122,7 @@ const PastRecords: React.FC = () => {
                   <th className="px-4 py-3 font-medium hidden sm:table-cell">Date</th>
                   <th className="px-4 py-3 font-medium hidden md:table-cell">Duration</th>
                   <th className="px-4 py-3 font-medium">Safety</th>
-                  <th className="px-4 py-3 font-medium hidden lg:table-cell">National %</th>
+                  <th className="px-4 py-3 font-medium hidden lg:table-cell">Prototype ref.</th>
                   <th className="px-4 py-3 font-medium hidden lg:table-cell">Flags</th>
                   <th className="px-4 py-3 font-medium text-right">Report</th>
                 </tr>
@@ -139,7 +137,7 @@ const PastRecords: React.FC = () => {
                     <td className="px-4 py-4 mono font-medium">#{rec.id}</td>
                     <td className="px-4 py-4 hidden sm:table-cell">{formatTripDate(rec.startTime)}</td>
                     <td className="px-4 py-4 hidden md:table-cell ui-caption">
-                      {formatDuration(rec.durationMs)} · {rec.distanceMi} mi
+                      {formatDuration(rec.durationMs)} · distance not measured
                     </td>
                     <td className="px-4 py-4">
                       <span className={`font-semibold mono ${rec.avgScore >= 85 ? 'text-[var(--success)]' : rec.avgScore >= 70 ? 'text-[var(--warning)]' : 'text-[var(--error)]'}`}>
@@ -149,8 +147,8 @@ const PastRecords: React.FC = () => {
                     <td className="px-4 py-4 hidden lg:table-cell font-semibold text-[var(--primary)]">{rec.nationalPercentile}</td>
                     <td className="px-4 py-4 hidden lg:table-cell">
                       <div className="flex flex-wrap gap-1">
-                        {rec.recklessFlag && <Badge tone="error">Reckless</Badge>}
-                        {rec.hypnosisEvents > 0 && <Badge tone="warning">Hypnosis</Badge>}
+                        {rec.recklessFlag && <Badge tone="warning">Pattern deviation</Badge>}
+                        {rec.hypnosisEvents > 0 && <Badge tone="warning">Low engagement</Badge>}
                       </div>
                     </td>
                     <td className="px-4 py-4 text-right">

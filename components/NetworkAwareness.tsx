@@ -22,8 +22,8 @@ const NetworkAwareness: React.FC<Props> = ({ events }) => (
       {events.length === 0 ? (
         <EmptyState
           icon="fa-shield-halved"
-          title="Grid stable"
-          description="No network events in the last interval. Nearby vehicles report normal conditions."
+          title="Demo feed empty"
+          description="No live vehicle network is connected. This panel is a clearly labeled interface prototype."
         />
       ) : (
         events.map(ev => (
@@ -50,8 +50,8 @@ const NetworkAwareness: React.FC<Props> = ({ events }) => (
     <div className="p-5 pt-0">
       <div className="p-3 rounded-lg bg-[var(--bg-muted)] border border-[var(--border)] flex items-center justify-between">
         <div>
-          <p className="ui-caption">Privacy mask</p>
-          <p className="text-sm font-medium text-[var(--success)]">Active (anonymous V2X)</p>
+          <p className="ui-caption">Connection status</p>
+          <p className="text-sm font-medium text-[var(--text-secondary)]">Simulation only · no V2X connection</p>
         </div>
         <i className="fas fa-fingerprint text-[var(--text-muted)]" aria-hidden="true" />
       </div>

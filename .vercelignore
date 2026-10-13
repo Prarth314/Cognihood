@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+supabase
+docs
+migrated_prompt_history
+*.mp4
+*.log
+.env*
+!.env.example
+replace-theme.mjs
