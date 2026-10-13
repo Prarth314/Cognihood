@@ -9,7 +9,7 @@ import Button from './ui/Button';
 import Badge from './ui/Badge';
 
 interface PreDriveGateProps {
-  onPassed: (remoteAnalysisEnabled: boolean) => void;
+  onPassed: (remoteAnalysisEnabled: boolean) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -43,7 +43,7 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
     <div className="flex flex-col gap-6 min-h-0">
       <PageHeader
         title="Pre-drive check"
-        description="15-second eligibility baseline scan before monitoring begins."
+        description="15-second camera signal-quality check before monitoring begins."
         onBack={onCancel}
         breadcrumbs={[
           { label: 'Home', onClick: onCancel },
@@ -64,9 +64,9 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
 
         <Card className="flex flex-col justify-center gap-6">
           <div>
-            <h2 className="ui-h2 mb-2">Trip authorization</h2>
+            <h2 className="ui-h2 mb-2">Signal-quality check</h2>
             <p className="ui-body">
-              Look at the camera naturally. We establish your alertness baseline before live monitoring starts.
+              Look at the camera naturally. This verifies camera visibility and establishes a session reference; it does not determine fitness to drive.
             </p>
           </div>
 
@@ -75,7 +75,7 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
               <span>Scan progress</span>
               <span className="mono">{Math.round(progress)}%</span>
             </div>
-            <div className="ui-progress">
+            <div className="ui-progress" role="progressbar" aria-label="Pre-drive scan progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
               <div className="ui-progress-bar" style={{ width: `${progress}%` }} />
             </div>
           </div>

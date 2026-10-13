@@ -14,15 +14,17 @@ import {
 import { CognitiveFingerprint } from '../types';
 import {
   generateCoachingTips,
-  estimateDistanceMi,
   cogLoadFromScore,
   tripStateFromScore,
 } from './coachingService';
 
 export class TripSession {
+  static readonly MIN_DURATION_MS = 30_000;
+  static readonly MIN_SCORE_SAMPLES = 3;
   readonly id: string;
   readonly startTime: number;
   readonly userId: string;
+  readonly cloudConsentAt: number | null;
   private events: TripEvent[] = [];
   private scoreTimeline: { t: number; score: number }[] = [];
   private perclosSamples: number[] = [];
@@ -41,10 +43,11 @@ export class TripSession {
   private recklessFlagged = false;
   private lastScoreRecordAt = 0;
 
-  constructor(userId: string) {
+  constructor(userId: string, cloudAnalysisEnabled = false) {
     this.id = crypto.randomUUID();
     this.startTime = Date.now();
     this.userId = userId;
+    this.cloudConsentAt = cloudAnalysisEnabled ? Date.now() : null;
   }
 
   recordAssessment(assessment: SafetyAssessment, temporal: TemporalAnalysis | null): void {
@@ -71,7 +74,7 @@ export class TripSession {
     if (temporal && temporal.highwayHypnosisIndex >= 55 && temporal.monotonyDurationSec >= 12 && now - this.lastHypnosisAt > 45_000) {
       this.lastHypnosisAt = now;
       this.hypnosisEvents++;
-      this.addEvent('HYPNOSIS', temporal.highwayHypnosisIndex, 'Highway hypnosis pattern detected', {
+      this.addEvent('HYPNOSIS', temporal.highwayHypnosisIndex, 'Experimental low-engagement pattern flagged', {
         durationSec: temporal.monotonyDurationSec,
         hhi: temporal.highwayHypnosisIndex,
       });
@@ -105,10 +108,13 @@ export class TripSession {
     this.addEvent('ATTENTION_FAIL', 70, 'Missed attention check prompt');
   }
 
-  finalize(baseline: CognitiveFingerprint | null): TripRecord {
+  finalize(baseline: CognitiveFingerprint | null): TripRecord | null {
     const endTime = Date.now();
     const durationMs = endTime - this.startTime;
     const scores = this.scoreTimeline.map(s => s.score);
+    if (durationMs < TripSession.MIN_DURATION_MS || scores.length < TripSession.MIN_SCORE_SAMPLES) {
+      return null;
+    }
     const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 100;
     const avgPerclos = this.perclosSamples.length ? this.perclosSamples.reduce((a, b) => a + b, 0) / this.perclosSamples.length : 0;
     const avgHHI = this.hhiSamples.length ? this.hhiSamples.reduce((a, b) => a + b, 0) / this.hhiSamples.length : 0;
@@ -136,7 +142,7 @@ export class TripSession {
       state: tripStateFromScore(avgScore),
       cogLoad: cogLoadFromScore(avgScore, avgCognitive),
       incidents: this.events.length,
-      distanceMi: estimateDistanceMi(durationMs),
+      distanceMi: 0,
       events: this.events,
       coachingTips: [],
       eligibilityFlags: this.eligibilityFlags,
@@ -152,6 +158,11 @@ export class TripSession {
       nationalPercentile: 0,
       nationalComparison,
       scoreTimeline: this.scoreTimeline,
+      algorithmVersion: '2026.10.13',
+      measurementSource: 'BROWSER_CAMERA',
+      cloudAnalysisUsed: this.cloudConsentAt !== null,
+      cloudConsentAt: this.cloudConsentAt,
+      dataQuality: 'VALID',
     };
 
     trip.fingerprintDeviation = computeFingerprintDeviation(trip, baseline);
@@ -160,8 +171,9 @@ export class TripSession {
 
     if (trip.recklessFlag && !this.recklessFlagged) {
       this.recklessFlagged = true;
-      this.addEvent('RECKLESS_DEVIATION', trip.fingerprintDeviation, 'Driving pattern deviated from personal baseline and national norms');
+      this.addEvent('RECKLESS_DEVIATION', trip.fingerprintDeviation, 'Driving pattern differed materially from the personal reference baseline');
       trip.events = this.events;
+      trip.incidents = this.events.length;
     }
 
     trip.coachingTips = generateCoachingTips(trip);

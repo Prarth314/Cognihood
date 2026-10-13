@@ -2,15 +2,12 @@
 export enum SafetyState {
   SAFE = 'SAFE',
   WARNING = 'WARNING',
-  CRITICAL = 'CRITICAL',
-  OVERRIDE = 'OVERRIDE'
+  CRITICAL = 'CRITICAL'
 }
 
 export enum AutonomyLevel {
   INFORM = 'INFORM',
-  SUGGEST = 'SUGGEST',
-  ASSIST = 'ASSIST',
-  OVERRIDE = 'OVERRIDE'
+  SUGGEST = 'SUGGEST'
 }
 
 export enum EligibilityState {
@@ -148,6 +145,11 @@ export interface TripRecord {
   nationalPercentile: number;
   nationalComparison: NationalComparison;
   scoreTimeline: { t: number; score: number }[];
+  algorithmVersion: string;
+  measurementSource: 'BROWSER_CAMERA';
+  cloudAnalysisUsed: boolean;
+  cloudConsentAt: number | null;
+  dataQuality: 'VALID';
 }
 
 export interface CognitiveFingerprint {

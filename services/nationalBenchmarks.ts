@@ -1,7 +1,7 @@
 
 import { NationalComparison, TripRecord } from '../types';
 
-/** Reference cohort averages (US highway drivers, synthetic benchmark dataset). */
+/** Synthetic prototype reference values. These are not population or national statistics. */
 export const NATIONAL_BENCHMARKS = {
   avgSafetyScore: 85,
   stdSafetyScore: 12,
@@ -59,11 +59,11 @@ export function computeNationalComparison(trip: Partial<TripRecord> & {
 
   let summary: string;
   if (safetyPct >= 75) {
-    summary = `You drove safer than ${safetyPct}% of the national reference cohort.`;
+    summary = `Prototype comparison score: ${safetyPct}/100. This is not a national percentile.`;
   } else if (safetyPct >= 50) {
-    summary = `Your safety index is near the national median (${NATIONAL_BENCHMARKS.avgSafetyScore}).`;
+    summary = `Your session is near the prototype reference (${NATIONAL_BENCHMARKS.avgSafetyScore}). This is not a population benchmark.`;
   } else {
-    summary = `Your safety index is below the national median. Focus on rest and smoother inputs.`;
+    summary = 'Your session is below the synthetic prototype reference. Treat this as a product-development indicator only.';
   }
 
   return {

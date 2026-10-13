@@ -69,7 +69,7 @@ export function createLocalSafetyAssessment(
   return {
     score,
     state,
-    autonomyLevel: state === SafetyState.CRITICAL ? AutonomyLevel.ASSIST : AutonomyLevel.INFORM,
+    autonomyLevel: state === SafetyState.CRITICAL ? AutonomyLevel.SUGGEST : AutonomyLevel.INFORM,
     explanation,
     metrics,
     timestamp: Date.now(),

@@ -1,6 +1,6 @@
 
 import { TripRecord, CognitiveFingerprint } from '../types';
-import { saveTrip, saveBaseline } from './tripStore';
+import { saveTrip } from './tripStore';
 
 const DB_NAME = 'cognihood_db';
 const TRIPS_STORE = 'trips';
@@ -12,8 +12,33 @@ function openLegacyDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, 1);
     req.onerror = () => reject(req.error);
     req.onsuccess = () => resolve(req.result);
-    req.onupgradeneeded = () => resolve(req.result);
+    req.onupgradeneeded = () => {
+      req.transaction?.abort();
+      reject(new Error('No legacy database exists on this device.'));
+    };
   });
+}
+
+function validLegacyTrip(value: unknown, userId: string): TripRecord | null {
+  if (!value || typeof value !== 'object') return null;
+  const trip = value as Partial<TripRecord>;
+  const finite = (number: unknown) => typeof number === 'number' && Number.isFinite(number);
+  if (
+    typeof trip.id !== 'string' || trip.id.length < 16 ||
+    !finite(trip.startTime) || !finite(trip.endTime) || !finite(trip.durationMs) ||
+    !finite(trip.avgScore) || !finite(trip.minScore) || !finite(trip.maxScore) ||
+    !Array.isArray(trip.events) || !Array.isArray(trip.coachingTips) || !Array.isArray(trip.scoreTimeline) ||
+    (trip.durationMs as number) < 30_000 || trip.events.length > 500 || trip.scoreTimeline.length > 5000
+  ) return null;
+  return {
+    ...(trip as TripRecord),
+    userId,
+    algorithmVersion: 'legacy-import-2026.10.13',
+    measurementSource: 'BROWSER_CAMERA',
+    cloudAnalysisUsed: false,
+    cloudConsentAt: null,
+    dataQuality: 'VALID',
+  };
 }
 
 async function readLegacyTrips(): Promise<TripRecord[]> {
@@ -83,20 +108,17 @@ export async function migrateLegacyIndexedDbToSupabase(
   let migrated = 0;
 
   for (const trip of trips) {
-    await saveTrip({ ...trip, userId });
+    const validated = validLegacyTrip(trip, userId);
+    if (!validated) continue;
+    await saveTrip(validated);
     migrated++;
   }
 
-  const baseline = await readLegacyBaseline();
-  let baselineMigrated = false;
-  if (baseline) {
-    await saveBaseline({ ...baseline, userId });
-    baselineMigrated = true;
-  }
+  const baselineMigrated = false;
 
   if (migrated > 0 || baselineMigrated) {
-    localStorage.setItem(MIGRATION_KEY, userId);
     if (deleteAfterSuccess) await clearLegacyData();
+    localStorage.setItem(MIGRATION_KEY, userId);
   }
 
   return { tripsMigrated: migrated, baselineMigrated };

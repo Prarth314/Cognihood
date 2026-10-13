@@ -31,9 +31,9 @@ const IncidentReviewModal: React.FC<IncidentReviewModalProps> = ({ record, onClo
               {[
                 ['Avg safety', record.avgScore],
                 ['PERCLOS', `${record.avgPerclos.toFixed(1)}%`],
-                ['Hypnosis index', record.avgHHI.toFixed(0)],
+                ['Low-engagement index', record.avgHHI.toFixed(0)],
                 ['Harsh brakes', record.harshBrakes],
-                ['National percentile', record.nationalPercentile],
+                ['Prototype reference score', record.nationalPercentile],
                 ['Baseline deviation', record.fingerprintDeviation],
               ].map(([label, value]) => (
                 <div key={String(label)} className="flex justify-between gap-4">
@@ -68,7 +68,7 @@ const IncidentReviewModal: React.FC<IncidentReviewModalProps> = ({ record, onClo
             }`}
           >
             <p className="text-sm font-semibold mb-2">
-              {record.recklessFlag ? 'Atypical reckless pattern' : isBad ? 'Compromised alertness' : 'High operational sync'}
+              {record.recklessFlag ? 'Personal-reference deviation' : isBad ? 'Elevated attention-risk indicators' : 'No elevated indicators'}
             </p>
             <p className="ui-body italic">{record.nationalComparison.summary}</p>
           </div>

@@ -31,7 +31,7 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <i className={cn('fas text-sm text-[var(--primary)]', stateIcons[state])} aria-hidden="true" />
-          <h3 className="ui-h3">Drive eligibility</h3>
+          <h3 className="ui-h3">Attention status</h3>
         </div>
         <Badge tone={stateBadge[state]}>{state}</Badge>
       </div>
@@ -48,7 +48,7 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
 
       {eligibility && !eligibility.canDrive && (
         <div className="p-3 rounded-lg bg-[var(--error-muted)] border border-[var(--error)]/20" role="alert">
-          <p className="text-sm font-medium text-[var(--error)]">Not eligible to continue driving</p>
+          <p className="text-sm font-medium text-[var(--error)]">Strong risk signal detected. Safely stop and reassess.</p>
         </div>
       )}
 
@@ -56,7 +56,7 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border)]">
           {[
             { label: 'PERCLOS 30s', value: `${temporal.perclos30.toFixed(1)}%`, warn: temporal.perclos30 >= 15 },
-            { label: 'Hypnosis index', value: temporal.highwayHypnosisIndex, warn: temporal.highwayHypnosisIndex >= 50 },
+            { label: 'Low-engagement index', value: temporal.highwayHypnosisIndex, warn: temporal.highwayHypnosisIndex >= 50 },
             { label: 'Gaze stagnation', value: `${temporal.gazeStagnation.toFixed(0)}%`, warn: false },
             { label: 'Monotony', value: `${temporal.monotonyDurationSec.toFixed(0)}s`, warn: false },
           ].map(item => (

@@ -1,6 +1,6 @@
 # CogniHood
 
-> Real-time driver-state awareness, fatigue detection, and post-drive coaching—built as a human-centered safety-assistance prototype.
+> Privacy-conscious, camera-derived attention indicators and post-session coaching—built as a human-centered development prototype.
 
 ![React](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
@@ -8,20 +8,20 @@
 ![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3fcf8e?logo=supabase&logoColor=white)
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-Face%20Landmarker-4285f4?logo=google&logoColor=white)
 
-CogniHood combines local facial-landmark analysis with temporal safety signals and AI-assisted interpretation. It estimates driver alertness, detects patterns associated with fatigue or highway hypnosis, recommends safer behavior, and turns completed trips into a personal driving baseline.
+CogniHood combines local facial-landmark analysis with temporal attention indicators and optional AI-assisted interpretation. It provides conservative warnings, records sufficiently long sessions, and builds a personal reference from server-recorded history.
 
 > [!CAUTION]
-> CogniHood is a prototype—not a medical device, vehicle-control system, or substitute for an attentive driver. It must not be used as the sole basis for deciding whether someone is safe to drive.
+> CogniHood is a prototype—not a medical device, navigation product, vehicle-control system, emergency service, or substitute for an attentive driver. It does not determine whether anyone is fit to drive. Do not interact with it while driving.
 
 ## What it does
 
-- Runs a 15-second pre-drive face and alertness check.
+- Runs a 15-second camera signal-quality check.
 - Samples eye closure, blink activity, and head pose with MediaPipe.
-- Computes rolling PERCLOS and highway-hypnosis indicators.
-- Applies eligibility-state hysteresis to reduce rapid state changes.
-- Displays calm, graduated warnings and nearby-stop recommendations.
+- Computes rolling eye-closure and low-engagement estimates.
+- Applies state hysteresis to reduce rapid warning changes.
+- Displays calm, graduated attention-risk warnings.
 - Records trip events, safety scores, and coaching suggestions.
-- Builds a personal cognitive fingerprint from previous trips.
+- Builds a personal reference from valid previous sessions on the server.
 - Synchronizes authenticated trip history through Supabase.
 - Uses confirmed email/password accounts; anonymous access is intentionally disabled.
 - Provides light, dark, system, and high-contrast display modes.
@@ -62,7 +62,7 @@ The browser performs local MediaPipe analysis continuously. Only after per-trip 
 
 ### Requirements
 
-- Node.js 18 or newer
+- Node.js 22 LTS (supported range: 22–24)
 - npm
 - A Supabase project
 - A Google Gemini API key stored as a server-side Supabase secret
@@ -81,14 +81,15 @@ Copy `.env.example` to `.env.local` and provide your own values:
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_publishable_key
+VITE_ENABLE_EXPERIMENTAL_MOTION=false
 ```
 
-Never commit `.env.local`. The Supabase publishable key is designed for browser use when Row Level Security is enabled. Never add a Gemini key to a `VITE_` variable or browser source.
+Never commit `.env.local`. The Supabase publishable key is designed for browser use when Row Level Security is enabled. Never add a Gemini key, service-role key, or Vercel token to a `VITE_` variable or browser source. `.env.example` documents every browser, Supabase Function, and optional Vercel CI value.
 
 ### 3. Initialize Supabase
 
 1. Open the SQL Editor in your Supabase project.
-2. Apply both files in [`supabase/migrations`](supabase/migrations) in numeric order. Existing deployments should apply `002_security_hardening.sql` after the original schema.
+2. Apply all SQL files in [`supabase/migrations`](supabase/migrations) in numeric order. Existing deployments should apply `002_security_hardening.sql`, then `003_commercial_integrity.sql`.
 3. Under **Authentication → Providers**, enable email/password authentication and require email confirmation.
 4. Keep phone, anonymous, and social providers disabled. Configure custom SMTP and CAPTCHA before public launch.
 5. If realtime archive updates are required, add `public.trips` to the `supabase_realtime` publication as described at the bottom of the initial migration.
@@ -98,9 +99,10 @@ Using the Supabase CLI, the database and protected AI function can be deployed w
 ```bash
 supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
-supabase secrets set GEMINI_API_KEY=YOUR_NEW_KEY
-supabase secrets set ALLOWED_ORIGINS=http://localhost:3000,https://YOUR_PRODUCTION_DOMAIN
+supabase secrets set GEMINI_API_KEY=YOUR_NEW_ROTATED_KEY GEMINI_MODEL=gemini-3.8-flash
+supabase secrets set ALLOWED_ORIGINS=http://localhost:3000,https://YOUR_PRODUCTION_DOMAIN AI_RATE_LIMIT_PER_MINUTE=15 AI_DAILY_LIMIT=2500 AI_GLOBAL_DAILY_LIMIT=100000
 supabase functions deploy gemini-assist
+supabase functions deploy delete-account
 ```
 
 Set secrets directly in your terminal or Supabase dashboard; never paste them into source code, commits, issues, or chat. `ALLOWED_ORIGINS` is intentionally local-only until configured for the production domain. The Edge Function authenticates every caller, enforces per-user quotas, limits frame size, times out upstream requests, and validates model output.
@@ -110,13 +112,27 @@ The migrations create:
 | Table | Purpose |
 | --- | --- |
 | `profiles` | CogniID and display-name metadata |
-| `trips` | Trip summaries, safety events, score timelines, and coaching tips |
-| `cognitive_fingerprints` | Per-user historical driving baseline |
+| `trips` | Session summaries, indicators, provenance, consent linkage, score timelines, and coaching notes |
+| `cognitive_fingerprints` | Server-recomputed per-user historical reference |
 | `ai_rate_limits` | Server-owned per-user AI request counters |
+| `ai_global_rate_limits` | Server-owned global AI cost circuit breaker |
+| `consent_records` | Immutable cloud-frame-processing consent records |
 
-All three tables use Row Level Security so authenticated users can access only their own records.
+User-facing tables use Row Level Security. Trip insertion goes through an authenticated database RPC, direct client updates are revoked, and personal references are recomputed on the server.
 
-### 4. Start the app
+### 4. Configure Vercel
+
+Create a Vercel project under the **Cognihood** team, set the framework preset to Vite, and add only these browser variables for Production and Preview:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_publishable_key
+VITE_ENABLE_EXPERIMENTAL_MOTION=false
+```
+
+Use `npm run build` and `dist` as the output directory. Connect automatic deployments to `main` when the repository is ready to push. Gemini and service-role credentials belong only in Supabase Functions, never Vercel.
+
+### 5. Start the app
 
 ```bash
 npm run dev
@@ -124,7 +140,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000), create a confirmed email account, sign in, and grant camera permission.
 
-### 5. Create a production bundle
+### 6. Create a production bundle
 
 ```bash
 npm run build
@@ -136,12 +152,12 @@ npm run preview
 ## Application journey
 
 1. **Authenticate** — Create a confirmed email account or sign in.
-2. **Choose Live Monitoring** — Enter the pre-drive eligibility flow.
-3. **Complete the scan** — Keep your face visible while CogniHood establishes a short baseline.
+2. **Choose Live Monitoring** — Enter the camera signal-quality flow.
+3. **Complete the scan** — Keep your face visible while CogniHood establishes a session reference.
 4. **Choose processing** — Continue locally or explicitly opt in to cloud-enhanced analysis for that trip.
-5. **Monitor the trip** — Review the safety index, temporal signals, warnings, and safe-stop suggestions.
+5. **Monitor the session** — Receive hands-free attention-risk warnings; screen interaction is not required.
 6. **End the trip** — Save the session and generate coaching insights.
-7. **Open Trip Archives** — Explore trends, incidents, national comparisons, and baseline deviations.
+7. **Open Trip Archives** — Explore trends, events, personal-reference deviations, and explicitly synthetic prototype comparisons.
 
 ## Safety model
 
@@ -152,8 +168,8 @@ CogniHood uses multiple signals rather than treating a single frame as authorita
 - **Blink rate:** locally detected blink events normalized over time.
 - **Head-pose variation:** pitch and yaw movement used as an engagement proxy.
 - **Gaze stagnation:** sustained low head-pose variance associated with monotony.
-- **Highway Hypnosis Index:** combined PERCLOS, stagnation, monotony, blink, and cognitive-load signal.
-- **Eligibility hysteresis:** risky transitions happen faster than recovery transitions, limiting state flapping.
+- **Low-engagement index:** experimental combination of eye closure, limited head movement, monotony, blink, and cognitive-load indicators.
+- **State hysteresis:** warning transitions happen faster than recovery transitions, limiting state flapping.
 
 These are non-medical behavioral estimates and can be wrong because of lighting, eyewear, camera position, facial differences, network failures, or model behavior.
 
@@ -167,8 +183,8 @@ Cognihood/
 ├── lib/                     Shared utility functions
 ├── services/
 │   ├── faceLandmarker.ts    Local landmarks, EAR, blink, and head pose
-│   ├── temporalAnalysis.ts  Rolling fatigue and hypnosis indicators
-│   ├── eligibilityEngine.ts State transitions and safety eligibility
+│   ├── temporalAnalysis.ts  Rolling attention-support indicators
+│   ├── eligibilityEngine.ts Conservative warning-state transitions
 │   ├── geminiService.ts     AI frame analysis and generated speech
 │   ├── tripSession.ts       In-memory trip event aggregation
 │   ├── tripStore.ts         Supabase persistence and export
@@ -191,28 +207,33 @@ The repository includes useful safeguards:
 The codebase now uses secure defaults:
 
 - Gemini credentials and requests are isolated in an authenticated Edge Function.
-- Cloud analysis is disabled by default and requires per-trip consent.
+- Cloud analysis is disabled by default, requires per-session consent, can be disabled during a session, and records consent provenance with the saved session.
 - Local MediaPipe monitoring continues when cloud analysis is disabled or unavailable.
 - Failed cloud analysis is never converted into a safe result.
 - Model output is validated, clamped, and length-limited on both sides of the trust boundary.
 - Trip and event identifiers use cryptographically random UUIDs.
-- Database constraints limit numeric ranges, JSON sizes, array lengths, and abusive payloads.
+- Database constraints limit numeric ranges, JSON sizes, array lengths, minimum valid-session duration, provenance, and abusive payloads.
+- Session insertion uses an authenticated RPC; direct client inserts/updates and client baseline writes are revoked.
+- Invalid or oversized database JSON is rejected at the runtime boundary instead of being blindly cast.
+- Account deletion is handled by an authenticated Edge Function and cascades through user-owned tables.
 - Runtime CSS and icons are bundled locally; MediaPipe CDN assets use a fixed version.
 - Vercel and `_headers` templates provide CSP, framing, MIME, referrer, HSTS, and permissions policies.
 - CI runs type checking, tests, a production build, and a production dependency audit.
 
-The application remains a prototype and is **not ready for a safety-critical deployment** without operational review. Before public release, rotate the previously browser-exposed Gemini key, configure the real production origin, deploy the pending database migration and Edge Function, verify headers on the deployed response, configure Auth rate limits/CAPTCHA/custom SMTP, establish retention and incident-response policies, and complete domain-specific safety and privacy review. See [`docs/COMMERCIAL_READINESS.md`](docs/COMMERCIAL_READINESS.md) for the current data-model review and launch decisions.
+The application remains a prototype and is **not ready for safety-critical or fitness-to-drive use**. Before public release, rotate the previously browser-exposed Gemini key, configure the production origin, deploy migrations and both Edge Functions, verify response headers, configure Auth abuse controls/custom SMTP, replace the development privacy/terms pages with counsel-approved documents, establish retention and incident-response policies, and complete independent human-factors and model validation. See [`docs/COMMERCIAL_READINESS.md`](docs/COMMERCIAL_READINESS.md).
 
 Do not place credentials in issues, commits, screenshots, exported logs, or chat messages. Configure secrets directly through the deployment provider or Supabase secret manager.
 
 ## Data lifecycle
 
 - Camera frames stay local unless the driver explicitly enables cloud enhancement for that trip. When enabled, one compressed frame is sent through the authenticated Edge Function every 15 seconds normally, every 6 seconds during a warning, and every 4 seconds during a critical state.
-- The Edge Function permits at most 15 AI calls per minute and 2,500 calls per 24-hour quota window per user. This is an initial commercial guardrail and should be tuned from production telemetry and cost data.
+- The Edge Function defaults to 15 AI calls per minute, 2,500 per rolling 24-hour user window, and 100,000 globally per rolling 24-hour window. All are server-configurable and must be tuned from production cost and latency telemetry.
 - Derived metrics and trip events are accumulated for the active session.
-- Ending a trip writes its summary to the signed-in user's Supabase account.
+- Sessions under 30 seconds or with fewer than three score samples are discarded instead of being saved as perfect sessions.
+- Ending a valid session sends a bounded record through an authenticated RPC; the database recomputes the historical reference.
 - Raw camera frames are not included in the `trips` schema.
-- **Export** downloads the signed-in user's profile reference, baseline, and trip records as JSON.
+- **Export** warns about sensitive contents and downloads the account reference, baseline, and session records without embedding the raw Auth UUID in the payload or filename.
+- **Delete account** permanently deletes the Supabase Auth user and cascades through CogniHood-owned account data.
 - Legacy IndexedDB data is never uploaded automatically. A signed-in user must explicitly import it after an ownership warning; the browser copy is deleted only after a successful upload. Remove the importer after the documented migration window.
 
 ## Troubleshooting
@@ -253,6 +274,8 @@ npm run typecheck
 npm test
 npm run build
 npm run security:audit
+# or run all four checks:
+npm run check
 ```
 
 ## License

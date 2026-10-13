@@ -4,6 +4,7 @@ type MotionCallback = (type: 'brake' | 'accel', magnitudeG: number) => void;
 let listening = false;
 let lastMagnitude = 9.80665;
 let callback: MotionCallback | null = null;
+let permissionGranted: boolean | null = null;
 
 const STANDARD_GRAVITY = 9.80665;
 const BRAKE_THRESHOLD_G = 0.22;
@@ -30,32 +31,37 @@ function handleMotion(e: DeviceMotionEvent): void {
   }
 }
 
+export async function requestMotionPermission(): Promise<boolean> {
+  if (!window.DeviceMotionEvent) return false;
+  const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
+  if (typeof dm.requestPermission !== 'function') {
+    permissionGranted = true;
+    return true;
+  }
+  try {
+    permissionGranted = (await dm.requestPermission()) === 'granted';
+  } catch {
+    permissionGranted = false;
+  }
+  return permissionGranted;
+}
+
 export function startMotionListener(cb: MotionCallback): boolean {
   if (listening) return true;
   if (!window.DeviceMotionEvent) return false;
-
-  callback = cb;
-
-  const attach = () => {
-    window.addEventListener('devicemotion', handleMotion);
-    listening = true;
-  };
-
   const dm = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
-  if (typeof dm.requestPermission === 'function') {
-    dm.requestPermission().then(state => {
-      if (state === 'granted') attach();
-    }).catch(() => {});
-    return true;
-  }
-
-  attach();
+  if (typeof dm.requestPermission === 'function' && permissionGranted !== true) return false;
+  callback = cb;
+  lastMagnitude = STANDARD_GRAVITY;
+  lastBrakeAt = 0;
+  lastAccelAt = 0;
+  window.addEventListener('devicemotion', handleMotion);
+  listening = true;
   return true;
 }
 
 export function stopMotionListener(): void {
-  if (!listening) return;
-  window.removeEventListener('devicemotion', handleMotion);
+  if (listening) window.removeEventListener('devicemotion', handleMotion);
   listening = false;
   callback = null;
 }

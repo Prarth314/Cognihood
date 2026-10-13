@@ -25,7 +25,7 @@ const NavigationPanel: React.FC<NavigationPanelProps> = ({ safetyState, onRerout
       <div className="p-5 pb-0">
         <h3 className="ui-h3 flex items-center gap-2">
           <i className="fas fa-map-location-dot text-[var(--primary)]" aria-hidden="true" />
-          Safe stops & rerouting
+          Demo rest-stop suggestions
         </h3>
       </div>
 
@@ -34,7 +34,7 @@ const NavigationPanel: React.FC<NavigationPanelProps> = ({ safetyState, onRerout
           <div className="space-y-3 pb-4">
             <div className="p-3 rounded-lg bg-[var(--error-muted)] border border-[var(--error)]/20">
               <p className="text-sm text-[#991b1b]">
-                Cognitive load or alertness below threshold. Consider rerouting to a nearby rest stop.
+                Attention-risk signals are elevated. These sample locations are not live directions; use a navigation service when safely stopped.
               </p>
             </div>
 
@@ -59,7 +59,7 @@ const NavigationPanel: React.FC<NavigationPanelProps> = ({ safetyState, onRerout
                   <span>{poi.time}</span>
                 </div>
                 {selectedPoi === poi.id && (
-                  <p className="ui-caption text-[var(--primary)] font-medium mt-2">Reroute active</p>
+                  <p className="ui-caption text-[var(--primary)] font-medium mt-2">Demo destination selected</p>
                 )}
               </button>
             ))}
@@ -68,7 +68,7 @@ const NavigationPanel: React.FC<NavigationPanelProps> = ({ safetyState, onRerout
           <EmptyState
             icon="fa-route"
             title="No active reroute"
-            description="Your safety metrics are within normal range. Rerouting options appear when attention drops."
+            description="Sample rest-stop suggestions appear when attention-risk signals rise. Live routing is not connected."
           />
         )}
       </div>
@@ -87,7 +87,7 @@ const NavigationPanel: React.FC<NavigationPanelProps> = ({ safetyState, onRerout
             <div className="w-2.5 h-2.5 bg-[var(--primary)] rounded-full shadow-md" />
           </div>
           <div className="absolute bottom-2 left-2 bg-[var(--bg-surface)]/90 px-2 py-1 rounded ui-caption mono">
-            {selectedPoi ? `Route ${selectedPoi}` : 'Map preview'}
+            {selectedPoi ? `Demo ${selectedPoi}` : 'Illustrative map'}
           </div>
         </div>
       </div>

@@ -8,7 +8,6 @@ import InterventionPanel from './components/InterventionPanel';
 import PastRecords from './components/PastRecords';
 import EligibilityPanel from './components/EligibilityPanel';
 import PreDriveGate from './components/PreDriveGate';
-import AttentionCheck from './components/AttentionCheck';
 import TripSummaryModal from './components/TripSummaryModal';
 import LandingAuth from './components/LandingAuth';
 import ModuleSelector from './components/ModuleSelector';
@@ -34,9 +33,8 @@ import { MetricsBuffer } from './services/metricsBuffer';
 import { computeTemporalAnalysis } from './services/temporalAnalysis';
 import { EligibilityEngine } from './services/eligibilityEngine';
 import { TripSession } from './services/tripSession';
-import { saveTrip, getAllTrips, getBaseline, saveBaseline } from './services/tripStore';
-import { computeFingerprint } from './services/baselineService';
-import { startMotionListener, stopMotionListener } from './services/motionService';
+import { saveTrip, getBaseline } from './services/tripStore';
+import { requestMotionPermission, startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
 import { createLocalSafetyAssessment } from './services/localSafetyService';
 
@@ -44,11 +42,10 @@ const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
   [SafetyState.SAFE]: { text: 'var(--success)', border: 'var(--success)' },
   [SafetyState.WARNING]: { text: 'var(--warning)', border: 'var(--warning)' },
   [SafetyState.CRITICAL]: { text: 'var(--error)', border: 'var(--error)' },
-  [SafetyState.OVERRIDE]: { text: 'var(--secondary)', border: 'var(--secondary)' },
 };
 
 const App: React.FC = () => {
-  const { user, cogniId, signOut } = useAuth();
+  const { user, cogniId, signOut, deleteAccount } = useAuth();
   const [currentView, setCurrentView] = useState<AppView>('landing');
   const [assessment, setAssessment] = useState<SafetyAssessment | null>(null);
   const [history, setHistory] = useState<SafetyAssessment[]>([]);
@@ -62,6 +59,7 @@ const App: React.FC = () => {
   const [tripSaveError, setTripSaveError] = useState<string | null>(null);
   const [remoteAnalysisEnabled, setRemoteAnalysisEnabled] = useState(false);
   const [remoteAnalysisError, setRemoteAnalysisError] = useState<string | null>(null);
+  const [tripNotice, setTripNotice] = useState<string | null>(null);
 
   const metricsBufferRef = useRef(new MetricsBuffer());
   const eligibilityEngineRef = useRef(new EligibilityEngine());
@@ -70,6 +68,8 @@ const App: React.FC = () => {
   const assessmentRef = useRef<SafetyAssessment | null>(null);
   const lastUiUpdateRef = useRef(0);
   const lastEligibilityRef = useRef<EligibilityState | null>(null);
+  const analyzingRef = useRef(false);
+  const remoteEnabledAtStartRef = useRef(false);
   assessmentRef.current = assessment;
 
   const endTrip = useCallback(async () => {
@@ -80,13 +80,12 @@ const App: React.FC = () => {
     try {
       const baseline = await getBaseline(user.id);
       const trip = session.finalize(baseline);
-      await saveTrip(trip);
-
-      const allTrips = await getAllTrips(user.id);
-      const fp = computeFingerprint(allTrips, user.id);
-      if (fp) await saveBaseline(fp);
-
       tripSessionRef.current = null;
+      if (!trip) {
+        setTripNotice('Short session discarded because it did not contain enough valid monitoring data.');
+        return true;
+      }
+      await saveTrip(trip);
       setCompletedTrip(trip);
       return true;
     } catch (e) {
@@ -96,6 +95,31 @@ const App: React.FC = () => {
       return false;
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user || currentView === 'landing') return;
+    stopMotionListener();
+    tripSessionRef.current = null;
+    metricsBufferRef.current.clear();
+    eligibilityEngineRef.current.reset();
+    analyzingRef.current = false;
+    setAssessment(null);
+    setHistory([]);
+    setTemporalAnalysis(null);
+    setEligibility(null);
+    setRemoteAnalysisEnabled(false);
+    setCurrentView('landing');
+  }, [user, currentView]);
+
+  useEffect(() => {
+    if (currentView !== 'dashboard') return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [currentView]);
 
   const leaveDashboard = useCallback(async () => {
     stopMotionListener();
@@ -116,11 +140,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentView !== 'dashboard' || !user) return;
 
-    tripSessionRef.current = new TripSession(user.id);
-    startMotionListener((type, g) => {
-      if (type === 'brake') tripSessionRef.current?.recordHarshBrake(g);
-      else tripSessionRef.current?.recordHarshAccel(g);
-    });
+    tripSessionRef.current = new TripSession(user.id, remoteEnabledAtStartRef.current);
+    if (import.meta.env.VITE_ENABLE_EXPERIMENTAL_MOTION === 'true') {
+      startMotionListener((type, g) => {
+        if (type === 'brake') tripSessionRef.current?.recordHarshBrake(g);
+        else tripSessionRef.current?.recordHarshAccel(g);
+      });
+    }
 
     return () => {
       stopMotionListener();
@@ -138,7 +164,7 @@ const App: React.FC = () => {
       if (elig.state === EligibilityState.INELIGIBLE) {
         speakUrgent('Alertness below safe threshold. Pull over when possible.');
       } else if (elig.state === EligibilityState.CAUTION) {
-        speakCalm('Elevated fatigue or hypnosis risk detected. Consider a break.');
+        speakCalm('Elevated attention-risk signals detected. Consider a break.');
       }
       lastEligibilityRef.current = elig.state;
     }
@@ -158,9 +184,7 @@ const App: React.FC = () => {
 
     if (assessmentRef.current) {
       const localAssessment = createLocalSafetyAssessment(temporal, snapshot, assessmentRef.current);
-      const base = remoteAnalysisEnabled && !remoteAnalysisError
-        ? assessmentRef.current
-        : localAssessment;
+      const base = localAssessment;
       const updated: SafetyAssessment = {
         ...base,
         metrics: snapshot.faceDetected ? {
@@ -185,7 +209,8 @@ const App: React.FC = () => {
   }, [currentView, runTemporalPipeline, remoteAnalysisEnabled, remoteAnalysisError]);
 
   const handleFrame = useCallback(async (base64: string) => {
-    if (isAnalyzing || currentView !== 'dashboard') return;
+    if (analyzingRef.current || currentView !== 'dashboard') return;
+    analyzingRef.current = true;
     setIsAnalyzing(true);
     try {
       const snapshots = metricsBufferRef.current.getInWindow(60_000);
@@ -211,19 +236,14 @@ const App: React.FC = () => {
       setEligibility(elig);
       console.error('Remote frame analysis unavailable; local monitoring remains active.', err);
     } finally {
+      analyzingRef.current = false;
       setIsAnalyzing(false);
     }
-  }, [isAnalyzing, history, currentView, runTemporalPipeline]);
-
-  const handleAttentionPass = () => speakCalm('Attention confirmed. Stay focused.');
-  const handleAttentionFail = () => {
-    tripSessionRef.current?.recordAttentionFail();
-    speakUrgent('Attention check missed. Re-center your focus on the road.');
-  };
+  }, [history, currentView, runTemporalPipeline]);
 
   const handleReroute = (poi: Poi) => {
-    setRerouteMsg(`Rerouting to ${poi.name} (${poi.distance})`);
-    speakCalm(`Rerouting to ${poi.name}. Low cognitive load rest stop ahead.`);
+    setRerouteMsg(`Demo destination selected: ${poi.name} (${poi.distance})`);
+    speakCalm(`${poi.name} selected. Connect a navigation provider before using directions.`);
   };
 
   const handleSignOut = async () => {
@@ -233,6 +253,18 @@ const App: React.FC = () => {
     }
     await signOut();
     setCurrentView('landing');
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmation = window.prompt('This permanently deletes your account and cloud data. Type DELETE to continue.');
+    if (confirmation !== 'DELETE') return;
+    stopMotionListener();
+    try {
+      await deleteAccount();
+      setCurrentView('landing');
+    } catch {
+      setTripNotice('Account deletion could not be completed. Verify the delete-account Edge Function is deployed and try again.');
+    }
   };
 
   const handleNavigate = (view: AppView) => {
@@ -290,6 +322,11 @@ const App: React.FC = () => {
         onSignOut={handleSignOut}
         headerActions={
           <div className="flex items-center gap-2">
+            {currentView === 'dashboard' && remoteAnalysisEnabled ? (
+              <Button variant="secondary" size="sm" onClick={() => setRemoteAnalysisEnabled(false)}>
+                Disable cloud analysis
+              </Button>
+            ) : null}
             <ThemeToggle compact />
             {currentView === 'dashboard' ? accessibilityToggle : null}
           </div>
@@ -300,12 +337,17 @@ const App: React.FC = () => {
             cogniId={cogniId}
             onStartTrip={() => setCurrentView('predrive')}
             onViewArchives={() => setCurrentView('records')}
+            onDeleteAccount={() => { void handleDeleteAccount(); }}
           />
         )}
 
         {currentView === 'predrive' && (
           <PreDriveGate
-            onPassed={(enabled) => {
+            onPassed={async (enabled) => {
+              if (import.meta.env.VITE_ENABLE_EXPERIMENTAL_MOTION === 'true') {
+                await requestMotionPermission();
+              }
+              remoteEnabledAtStartRef.current = enabled;
               setRemoteAnalysisEnabled(enabled);
               setRemoteAnalysisError(null);
               setCurrentView('dashboard');
@@ -352,7 +394,7 @@ const App: React.FC = () => {
                   <div className="absolute top-4 left-4 ui-surface p-4 rounded-lg pointer-events-none" aria-live="polite">
                     <div className="ui-caption font-medium mb-1">Safety index</div>
                     <div className="text-4xl sm:text-5xl font-bold tracking-tight" style={{ color: safetyColors.text }}>
-                      {assessment?.score.toFixed(0) || '100'}
+                      {assessment ? assessment.score.toFixed(0) : '—'}
                     </div>
                   </div>
                   {isAnalyzing && (
@@ -391,14 +433,14 @@ const App: React.FC = () => {
               <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-4" role="alert">
                 <div className="ui-card border-2 border-[var(--error)] bg-[var(--error-muted)] text-center max-w-lg animate-pulse">
                   <h2 className="ui-h1 text-[var(--error)]">
-                    {eligibility?.state === EligibilityState.INELIGIBLE ? 'Ineligible to drive' : 'Critical intervention'}
+                    {eligibility?.state === EligibilityState.INELIGIBLE ? 'Strong attention-risk signal' : 'Immediate attention recommended'}
                   </h2>
                   <p className="ui-caption mt-2 uppercase">{eligibility?.primaryReason}</p>
                 </div>
               </div>
             )}
 
-            <AttentionCheck active onPass={handleAttentionPass} onFail={handleAttentionFail} />
+            <p className="sr-only">No screen interaction is required while monitoring is active.</p>
           </div>
         )}
 
@@ -430,6 +472,15 @@ const App: React.FC = () => {
           <div className="ui-toast border-[var(--error)]/30 bg-[var(--error-muted)]">
             <p className="text-sm text-[var(--error)] font-medium">Trip save failed: {tripSaveError}</p>
             <Button variant="ghost" size="sm" className="mt-2" onClick={() => setTripSaveError(null)}>Dismiss</Button>
+          </div>
+        </div>
+      )}
+
+      {tripNotice && (
+        <div className="ui-toast-container" role="status">
+          <div className="ui-toast border-[var(--border)] bg-[var(--bg-surface)]">
+            <p className="text-sm font-medium">{tripNotice}</p>
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setTripNotice(null)}>Dismiss</Button>
           </div>
         </div>
       )}

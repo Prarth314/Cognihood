@@ -30,6 +30,11 @@ type TripRow = {
   national_percentile: number;
   national_comparison: unknown;
   score_timeline: unknown;
+  algorithm_version?: string;
+  measurement_source?: string;
+  cloud_analysis_used?: boolean;
+  cloud_consent_at?: number | null;
+  data_quality?: string;
 };
 
 type FingerprintRow = {
@@ -80,25 +85,47 @@ function tripToRow(trip: TripRecord): TripRow {
     national_percentile: trip.nationalPercentile,
     national_comparison: trip.nationalComparison,
     score_timeline: trip.scoreTimeline,
+    algorithm_version: trip.algorithmVersion,
+    measurement_source: trip.measurementSource,
+    cloud_analysis_used: trip.cloudAnalysisUsed,
+    cloud_consent_at: trip.cloudConsentAt,
+    data_quality: trip.dataQuality,
   };
 }
 
+function finite(value: unknown, field: string): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) throw new Error(`Invalid trip field: ${field}`);
+  return number;
+}
+
+function array(value: unknown, field: string, maxLength: number): unknown[] {
+  if (!Array.isArray(value) || value.length > maxLength) throw new Error(`Invalid trip field: ${field}`);
+  return value;
+}
+
 function rowToTrip(row: TripRow): TripRecord {
+  if (!row || typeof row.id !== 'string' || typeof row.user_id !== 'string') {
+    throw new Error('Invalid trip record returned by the data service.');
+  }
+  const events = array(row.events, 'events', 500) as TripRecord['events'];
+  const coachingTips = array(row.coaching_tips, 'coachingTips', 100) as TripRecord['coachingTips'];
+  const scoreTimeline = array(row.score_timeline, 'scoreTimeline', 5000) as TripRecord['scoreTimeline'];
   return {
     id: row.id,
     userId: row.user_id,
-    startTime: row.start_time,
-    endTime: row.end_time,
-    durationMs: row.duration_ms,
-    avgScore: Number(row.avg_score),
-    minScore: Number(row.min_score),
-    maxScore: Number(row.max_score),
+    startTime: finite(row.start_time, 'startTime'),
+    endTime: finite(row.end_time, 'endTime'),
+    durationMs: finite(row.duration_ms, 'durationMs'),
+    avgScore: finite(row.avg_score, 'avgScore'),
+    minScore: finite(row.min_score, 'minScore'),
+    maxScore: finite(row.max_score, 'maxScore'),
     state: row.state as TripRecord['state'],
     cogLoad: row.cog_load as TripRecord['cogLoad'],
     incidents: row.incidents,
     distanceMi: Number(row.distance_mi),
-    events: row.events as TripRecord['events'],
-    coachingTips: row.coaching_tips as TripRecord['coachingTips'],
+    events,
+    coachingTips,
     eligibilityFlags: row.eligibility_flags,
     hypnosisEvents: row.hypnosis_events,
     attentionFailures: row.attention_failures,
@@ -111,23 +138,12 @@ function rowToTrip(row: TripRow): TripRecord {
     recklessFlag: row.reckless_flag,
     nationalPercentile: row.national_percentile,
     nationalComparison: row.national_comparison as TripRecord['nationalComparison'],
-    scoreTimeline: row.score_timeline as TripRecord['scoreTimeline'],
-  };
-}
-
-function fingerprintToRow(fp: CognitiveFingerprint): FingerprintRow {
-  return {
-    user_id: fp.userId,
-    trip_count: fp.tripCount,
-    avg_safety_score: fp.avgSafetyScore,
-    avg_perclos: fp.avgPerclos,
-    avg_hhi: fp.avgHHI,
-    avg_distraction: fp.avgDistraction,
-    harsh_brakes_per_hour: fp.harshBrakesPerHour,
-    harsh_accels_per_hour: fp.harshAccelsPerHour,
-    std_safety_score: fp.stdSafetyScore,
-    std_harsh_brakes: fp.stdHarshBrakes,
-    updated_at: fp.updatedAt,
+    scoreTimeline,
+    algorithmVersion: row.algorithm_version ?? 'legacy',
+    measurementSource: 'BROWSER_CAMERA',
+    cloudAnalysisUsed: row.cloud_analysis_used ?? false,
+    cloudConsentAt: row.cloud_consent_at ?? null,
+    dataQuality: 'VALID',
   };
 }
 
@@ -151,9 +167,7 @@ export async function saveTrip(trip: TripRecord): Promise<void> {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured');
   }
-  const { error } = await getSupabase()
-    .from('trips')
-    .upsert(tripToRow(trip), { onConflict: 'id' });
+  const { error } = await getSupabase().rpc('record_trip', { p_trip: tripToRow(trip) });
   if (error) throw new Error(`Failed to save trip: ${error.message}`);
 }
 
@@ -189,16 +203,6 @@ export async function deleteTrip(id: string): Promise<void> {
   if (error) throw new Error(`Failed to delete trip: ${error.message}`);
 }
 
-export async function saveBaseline(baseline: CognitiveFingerprint): Promise<void> {
-  if (!isSupabaseConfigured()) {
-    throw new Error('Supabase not configured');
-  }
-  const { error } = await getSupabase()
-    .from('cognitive_fingerprints')
-    .upsert(fingerprintToRow(baseline), { onConflict: 'user_id' });
-  if (error) throw new Error(`Failed to save baseline: ${error.message}`);
-}
-
 export async function getBaseline(userId?: string): Promise<CognitiveFingerprint | null> {
   const uid = requireUserId(userId);
   if (!isSupabaseConfigured()) return null;
@@ -231,21 +235,23 @@ export async function exportTripsJson(userId?: string): Promise<string> {
   const profile = await getProfile(uid);
   return JSON.stringify({
     exportedAt: new Date().toISOString(),
-    userId: uid,
-    cogniId: profile?.cogniId,
-    baseline,
-    trips,
+    accountReference: profile?.cogniId,
+    baseline: baseline ? (({ userId: _userId, ...rest }) => rest)(baseline) : null,
+    trips: trips.map(({ userId: _userId, ...trip }) => trip),
   }, null, 2);
 }
 
 export function downloadCogniLogs(userId?: string): Promise<void> {
+  if (!window.confirm('This export contains sensitive attention and session history. Store it securely. Continue?')) {
+    return Promise.resolve();
+  }
   return exportTripsJson(userId).then(json => {
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cognihood_logs_${userId ?? 'user'}_${Date.now()}.json`;
+    a.download = `cognihood_export_${Date.now()}.json`;
     a.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 }

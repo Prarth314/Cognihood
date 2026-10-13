@@ -16,14 +16,14 @@ function deriveCandidateState(temporal: TemporalAnalysis, gemini?: SafetyAssessm
     return { state: EligibilityState.INELIGIBLE, reasons };
   }
 
-  // Highway hypnosis: stagnant gaze + monotony
+  // Experimental low-engagement indicator: stagnant gaze + monotony.
   if (temporal.highwayHypnosisIndex >= 65 && temporal.monotonyDurationSec >= 15) {
-    reasons.push(`Highway hypnosis index ${temporal.highwayHypnosisIndex} with ${temporal.monotonyDurationSec.toFixed(0)}s monotony`);
+    reasons.push(`Low-engagement index ${temporal.highwayHypnosisIndex} with ${temporal.monotonyDurationSec.toFixed(0)}s limited movement`);
     return { state: EligibilityState.INELIGIBLE, reasons };
   }
 
   if (temporal.highwayHypnosisIndex >= 55 || temporal.gazeStagnation >= 70) {
-    reasons.push(`Elevated hypnosis risk (HHI ${temporal.highwayHypnosisIndex}, gaze stagnation ${temporal.gazeStagnation.toFixed(0)}%)`);
+    reasons.push(`Elevated low-engagement estimate (${temporal.highwayHypnosisIndex}, limited head movement ${temporal.gazeStagnation.toFixed(0)}%)`);
     if (temporal.monotonyDurationSec >= 8) {
       return { state: EligibilityState.INELIGIBLE, reasons };
     }
@@ -42,7 +42,7 @@ function deriveCandidateState(temporal: TemporalAnalysis, gemini?: SafetyAssessm
 
   if (gemini?.state === SafetyState.WARNING || temporal.highwayHypnosisIndex >= 40) {
     if (temporal.highwayHypnosisIndex >= 40) {
-      reasons.push(`HHI trending elevated (${temporal.highwayHypnosisIndex})`);
+      reasons.push(`Low-engagement indicator trending elevated (${temporal.highwayHypnosisIndex})`);
     }
     if (gemini?.state === SafetyState.WARNING) {
       reasons.push('Gemini safety assessment: WARNING');

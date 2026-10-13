@@ -9,7 +9,9 @@ This document records the current product policy and the parts of the prototype 
 - Local MediaPipe monitoring remains available without cloud processing.
 - Cloud processing requires explicit consent for each trip and does not store raw camera frames in the application database.
 - Cloud sampling is adaptive: every 15 seconds normally, every 6 seconds during a warning, and every 4 seconds during a critical or ineligible state.
-- The server ceiling is 15 AI requests per minute and 2,500 requests per 24-hour quota window per user.
+- Default server ceilings are 15 AI requests per minute, 2,500 requests per rolling 24-hour window per user, and 100,000 requests globally per rolling 24-hour window. All are environment-configurable.
+- The UI no longer asks a moving driver to complete touchscreen attention checks.
+- Navigation, V2X, synthetic comparisons, phone motion, and vehicle-control limitations are explicitly labeled; experimental motion classification is disabled by default.
 
 ## Live Supabase review (12 October 2026)
 
@@ -19,7 +21,7 @@ The public project configuration was inspected without a service-role key or use
 - New account registration is enabled and email confirmation is required.
 - `profiles`, `trips`, and `cognitive_fingerprints` expose the columns expected by the repository.
 - Anonymous reads returned no rows for all three tables.
-- `ai_rate_limits` is not yet present in the deployed schema. Apply migration `002_security_hardening.sql` before deploying the Edge Function.
+- `ai_rate_limits` was not present at review time. Apply migrations `002_security_hardening.sql` and `003_commercial_integrity.sql` before deploying the Edge Functions.
 
 This check does not prove every authenticated RLS path. Before launch, test two separate user accounts and verify that neither account can select, insert, update, or delete the other's records.
 
@@ -33,29 +35,34 @@ This is still the correct home for minimal account-facing metadata such as the g
 
 The trip record is useful, but some current values are prototype estimates:
 
-- `distance_mi` is inferred from duration using a fixed assumed speed, not GPS or odometer data.
+- `distance_mi` is now stored as zero and displayed as “not measured” until a validated distance source is integrated.
 - `national_percentile` and `national_comparison` use hard-coded reference curves, not a validated national dataset.
-- Harsh braking and acceleration are inferred from browser motion sensors without vehicle-specific calibration.
+- Harsh braking and acceleration remain experimental browser-motion estimates and are disabled unless `VITE_ENABLE_EXPERIMENTAL_MOTION=true`.
 - `reckless_flag` is an unnecessarily strong claim; use a neutral term such as `driving_pattern_deviation`.
-- Scores, events, and timelines are currently assembled by the client and therefore cannot be considered tamper-resistant.
+- Scores, events, and timelines originate in the client and therefore cannot be considered tamper-resistant. Migration 003 routes bounded insertion through an authenticated RPC, records provenance, and prevents direct updates, but cryptographic device attestation or server-side raw-signal processing is still required for third-party reliance.
 
-For a commercial release, add a measurement source, algorithm version, confidence, and processing version. Compute authoritative summaries server-side. Do not market these values as validated national rankings until a documented representative dataset and methodology exist.
+Migration 003 adds measurement source, algorithm version, consent linkage, and data-quality fields and recomputes historical references server-side. Do not market the remaining synthetic comparison as a validated national ranking until a documented representative dataset and methodology exist.
 
 ### `cognitive_fingerprints` — retain only as a versioned driver baseline
 
 The historical baseline is useful for personalization, but its current name can imply biometric identity. Rename the product concept to **driver baseline**, calculate it server-side from trusted trip inputs, and store the algorithm version and minimum sample threshold. Do not use it for authentication or identity matching.
 
-### `ai_rate_limits` — deploy
+### `ai_rate_limits` and `ai_global_rate_limits` — deploy
 
 This table is intentionally inaccessible to browser roles. A security-definer function, callable only by the service role, atomically enforces the per-minute and daily ceilings.
 
-## Tables needed before commercial launch
+## Tables added locally but not yet deployed
 
-- `consent_records`: immutable privacy, terms, cloud-frame-processing, and policy versions with timestamps.
+- `consent_records`: immutable cloud-frame-processing policy versions with timestamps.
+- `ai_global_rate_limits`: global budget circuit breaker.
+
+## Tables still needed before commercial launch
+
+- Extend `consent_records` with counsel-approved privacy and terms versions after final documents exist.
 - `processing_runs`: model/provider, model version, algorithm version, input provenance, confidence, latency, and failure reason for each derived assessment.
 - `devices`: revocable device registrations and app versions, without covert fingerprinting.
 - `audit_events`: security-relevant account and administrative actions with a bounded retention policy.
-- `data_subject_requests`: export/deletion workflow and completion evidence.
+- `data_subject_requests`: request workflow and completion evidence beyond the current self-service export/delete paths.
 - `organizations` and memberships only when fleet or employer accounts are introduced; keep consumer accounts isolated until then.
 
 ## Legacy IndexedDB policy

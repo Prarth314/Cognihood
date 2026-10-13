@@ -16,7 +16,7 @@ interface TripSummaryModalProps {
 const TripSummaryModal: React.FC<TripSummaryModalProps> = ({ trip, onClose, onViewArchives }) => {
   const wins = [
     trip.avgScore >= 85 && `Safety index averaged ${trip.avgScore}%`,
-    trip.hypnosisEvents === 0 && 'No highway hypnosis events',
+    trip.hypnosisEvents === 0 && 'No low-engagement pattern flags',
     trip.attentionFailures === 0 && 'All attention checks passed',
     trip.harshBrakes === 0 && 'No harsh braking detected',
   ].filter(Boolean) as string[];
@@ -38,7 +38,7 @@ const TripSummaryModal: React.FC<TripSummaryModalProps> = ({ trip, onClose, onVi
       <div className="space-y-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MetricCard label="Safety" value={trip.avgScore} tone={trip.avgScore >= 85 ? 'success' : 'warning'} />
-          <MetricCard label="National %" value={trip.nationalPercentile} tone="primary" />
+          <MetricCard label="Prototype ref." value={trip.nationalPercentile} tone="primary" />
           <MetricCard label="Incidents" value={trip.incidents} />
           <MetricCard label="Deviation" value={trip.fingerprintDeviation} tone={trip.recklessFlag ? 'error' : 'default'} />
         </div>
@@ -47,7 +47,7 @@ const TripSummaryModal: React.FC<TripSummaryModalProps> = ({ trip, onClose, onVi
           <div className="p-4 rounded-lg bg-[var(--error-muted)] border border-[var(--error)]/20" role="alert">
             <p className="text-sm text-[#991b1b]">
               <i className="fas fa-flag mr-2" aria-hidden="true" />
-              Driving pattern was atypically reckless compared to your baseline and national norms.
+              This session differed materially from your personal reference. Review the underlying events and context.
             </p>
           </div>
         )}

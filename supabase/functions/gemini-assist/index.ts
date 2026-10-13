@@ -5,7 +5,21 @@ const MAX_IMAGE_BASE64_LENGTH = 1_500_000;
 const DEFAULT_MODEL = 'gemini-3.8-flash';
 const DEFAULT_LOCAL_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
+function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
+  const parsed = Number(Deno.env.get(name));
+  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, Math.floor(parsed))) : fallback;
+}
+
 const jsonHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+const requestIds = new WeakMap<Request, string>();
+
+function requestId(request: Request): string {
+  const existing = requestIds.get(request);
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  requestIds.set(request, id);
+  return id;
+}
 
 function allowedOrigins(): string[] {
   const configured = Deno.env.get('ALLOWED_ORIGINS');
@@ -29,7 +43,7 @@ function corsHeaders(request: Request): Record<string, string> {
 function response(request: Request, status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...jsonHeaders, ...corsHeaders(request) },
+    headers: { ...jsonHeaders, ...corsHeaders(request), 'X-Request-ID': requestId(request) },
   });
 }
 
@@ -48,7 +62,7 @@ function validateAnalysis(value: unknown): Record<string, unknown> {
   const metrics = input.metrics as Record<string, unknown> | undefined;
   const pose = metrics?.headPose as Record<string, unknown> | undefined;
   if (!metrics || !pose) throw new Error('Model response omitted required metrics.');
-  const validAutonomy = ['INFORM', 'SUGGEST', 'ASSIST', 'OVERRIDE'];
+  const validAutonomy = ['INFORM', 'SUGGEST'];
 
   return {
     metrics: {
@@ -60,7 +74,7 @@ function validateAnalysis(value: unknown): Record<string, unknown> {
         yaw: clamp(pose.yaw, -90, 90),
         roll: clamp(pose.roll, -90, 90),
       },
-      stressLevel: clamp(metrics.stressLevel, 0, 100),
+      stressLevel: 0,
       distractionLevel: clamp(metrics.distractionLevel, 0, 100),
     },
     cognitiveLoad: clamp(input.cognitiveLoad, 0, 100),
@@ -115,18 +129,13 @@ Deno.serve(async request => {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: allowed, error: quotaError } = await admin.rpc('consume_ai_quota', {
-    p_user_id: user.id,
-    p_limit: 15,
-    p_window_seconds: 60,
-    p_daily_limit: 2500,
-  });
-  if (quotaError) return response(request, 503, { error: 'Rate limiter unavailable.' });
-  if (!allowed) return response(request, 429, { error: 'AI analysis rate limit reached.' });
-
   let body: Record<string, unknown>;
   try {
-    body = await request.json();
+    const rawBody = await request.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return response(request, 413, { error: 'Request is too large.' });
+    }
+    body = JSON.parse(rawBody);
   } catch {
     return response(request, 400, { error: 'Request body must be JSON.' });
   }
@@ -135,6 +144,14 @@ Deno.serve(async request => {
   const imageBase64 = body.imageBase64;
   if (typeof imageBase64 !== 'string' || !imageBase64 || imageBase64.length > MAX_IMAGE_BASE64_LENGTH) {
     return response(request, 400, { error: 'Invalid or oversized image.' });
+  }
+  try {
+    const signature = atob(imageBase64.slice(0, 8));
+    if (signature.charCodeAt(0) !== 0xff || signature.charCodeAt(1) !== 0xd8 || signature.charCodeAt(2) !== 0xff) {
+      return response(request, 400, { error: 'Image must be a JPEG.' });
+    }
+  } catch {
+    return response(request, 400, { error: 'Image must be valid base64.' });
   }
 
   const temporal = body.temporal && typeof body.temporal === 'object'
@@ -147,6 +164,21 @@ Deno.serve(async request => {
     monotonyDurationSec: clamp(temporal.monotonyDurationSec, 0, 120),
     blinkRatePerMin: clamp(temporal.blinkRatePerMin, 0, 120),
   };
+
+  const { data: globallyAllowed, error: globalQuotaError } = await admin.rpc('consume_ai_global_quota', {
+    p_daily_limit: boundedEnvInt('AI_GLOBAL_DAILY_LIMIT', 100000, 1, 1000000),
+  });
+  if (globalQuotaError) return response(request, 503, { error: 'Global rate limiter unavailable.' });
+  if (!globallyAllowed) return response(request, 503, { error: 'AI service budget reached.' });
+
+  const { data: allowed, error: quotaError } = await admin.rpc('consume_ai_quota', {
+    p_user_id: user.id,
+    p_limit: boundedEnvInt('AI_RATE_LIMIT_PER_MINUTE', 15, 1, 60),
+    p_window_seconds: 60,
+    p_daily_limit: boundedEnvInt('AI_DAILY_LIMIT', 2500, 1, 10000),
+  });
+  if (quotaError) return response(request, 503, { error: 'Rate limiter unavailable.' });
+  if (!allowed) return response(request, 429, { error: 'AI analysis rate limit reached.' });
 
   const model = Deno.env.get('GEMINI_MODEL') || DEFAULT_MODEL;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -166,20 +198,19 @@ Deno.serve(async request => {
           role: 'user',
           parts: [
             { inlineData: { data: imageBase64, mimeType: 'image/jpeg' } },
-            { text: `Estimate observable driver-state signals. Previous score: ${clamp(body.previousScore, 0, 100, 100)}. Trusted local temporal metrics: ${JSON.stringify(temporalSummary)}.` },
+            { text: `Estimate only observable attention-related visual signals. Previous score: ${clamp(body.previousScore, 0, 100, 100)}. Unverified client-computed temporal indicators: ${JSON.stringify(temporalSummary)}. Do not diagnose stress, impairment, fatigue, or fitness to drive.` },
           ],
         }],
         generationConfig: {
           responseMimeType: 'application/json',
-          temperature: 0.1,
           maxOutputTokens: 700,
           responseJsonSchema: {
             type: 'object',
-            required: ['metrics', 'cognitiveLoad', 'autonomyLevel', 'explanation', 'fingerprintDeviation'],
+            required: ['metrics', 'cognitiveLoad', 'autonomyLevel', 'explanation'],
             properties: {
               metrics: {
                 type: 'object',
-                required: ['ear', 'blinkRate', 'closureDuration', 'headPose', 'stressLevel', 'distractionLevel'],
+                required: ['ear', 'blinkRate', 'closureDuration', 'headPose', 'distractionLevel'],
                 properties: {
                   ear: { type: 'number', minimum: 0, maximum: 1 },
                   blinkRate: { type: 'number', minimum: 0, maximum: 120 },
@@ -193,12 +224,11 @@ Deno.serve(async request => {
                       roll: { type: 'number', minimum: -90, maximum: 90 },
                     },
                   },
-                  stressLevel: { type: 'number', minimum: 0, maximum: 100 },
                   distractionLevel: { type: 'number', minimum: 0, maximum: 100 },
                 },
               },
               cognitiveLoad: { type: 'number', minimum: 0, maximum: 100 },
-              autonomyLevel: { type: 'string', enum: ['INFORM', 'SUGGEST', 'ASSIST', 'OVERRIDE'] },
+              autonomyLevel: { type: 'string', enum: ['INFORM', 'SUGGEST'] },
               explanation: { type: 'string', maxLength: 500 },
               moodIntervention: { type: 'string', maxLength: 240 },
               fingerprintDeviation: { type: 'number', minimum: 0, maximum: 100 },
@@ -209,13 +239,13 @@ Deno.serve(async request => {
     });
 
     if (!geminiResponse.ok) {
-      console.error('Gemini request failed', geminiResponse.status);
+      console.error('Gemini request failed', { requestId: requestId(request), status: geminiResponse.status });
       return response(request, 502, { error: 'Remote model request failed.' });
     }
     const modelResponse = await geminiResponse.json();
     return response(request, 200, validateAnalysis(extractJson(modelResponse)));
   } catch (error) {
-    console.error('Gemini analysis failed', error instanceof Error ? error.message : 'unknown error');
+    console.error('Gemini analysis failed', { requestId: requestId(request), message: error instanceof Error ? error.message : 'unknown error' });
     return response(request, 502, { error: 'Remote analysis could not be completed.' });
   } finally {
     clearTimeout(timeout);
