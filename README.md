@@ -7,7 +7,7 @@
 CogniHood turns local camera signals into understandable, conservative attention indicators—without pretending to replace the driver, the vehicle, or professional judgment.
 
 [![CI](https://github.com/Prarth314/Cognihood/actions/workflows/ci.yml/badge.svg)](https://github.com/Prarth314/Cognihood/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-F4C430.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F4C430?style=flat-square&logo=opensourceinitiative&logoColor=111111)](LICENSE)
 ![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3fcf8e?logo=supabase&logoColor=white)
@@ -324,8 +324,23 @@ Issues and focused pull requests are welcome during development. Changes to scor
 
 Please do not commit credentials, `.env.local`, recordings, exported CogniLogs, or personal driving data.
 
-## 📄 License
+## 📜 License
 
-Copyright © 2026 Cognihood.
+<div align="center">
 
-This project is available under the [MIT License](LICENSE). The license permits use, modification, distribution, and private or commercial use while requiring preservation of the copyright and license notice. It does not provide a warranty.
+[![MIT License](https://img.shields.io/badge/OPEN%20SOURCE-MIT%20LICENSE-F4C430?style=for-the-badge&logo=opensourceinitiative&logoColor=111111&labelColor=111111)](LICENSE)
+
+### Open to explore. Free to build on. Ready for what comes next.
+
+CogniHood is released under the **MIT License**, a concise and permissive open-source license.
+
+</div>
+
+| You may | You must | Please understand |
+| :---: | :---: | :---: |
+| ✅ Use, copy, and modify | 📌 Keep the copyright notice | ⚠️ The software is provided without warranty |
+| ✅ Distribute and sublicense | 📌 Include the license text | ⚠️ The authors are not liable for damages |
+| ✅ Use it privately or commercially |  |  |
+
+> **Copyright © 2026 Cognihood**<br>
+> Read the complete legal terms in the [`LICENSE`](LICENSE) file.
