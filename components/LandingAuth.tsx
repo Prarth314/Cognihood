@@ -42,10 +42,12 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
-        setNotice('If signup succeeded, check your email to confirm the account before signing in.');
+        setNotice('Check your email to confirm the account before signing in.');
       } else {
         await signInWithEmail(email, password);
       }
+    } catch {
+      // AuthContext exposes the sanitized provider error in the form alert.
     } finally {
       setSubmitting(false);
     }
@@ -61,6 +63,8 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     try {
       await sendPasswordReset(email);
       setNotice('If the account exists, a password-reset email has been sent.');
+    } catch {
+      // AuthContext exposes the sanitized provider error in the form alert.
     } finally {
       setSubmitting(false);
     }
@@ -90,9 +94,10 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
         {!supabaseReady && (
           <Card muted className="border-[var(--warning)] bg-[var(--warning-muted)]">
             <p className="ui-body text-[#92400e]">
-              Add <code className="mono text-xs">VITE_SUPABASE_URL</code> and{' '}
-              <code className="mono text-xs">VITE_SUPABASE_ANON_KEY</code> to{' '}
-              <code className="mono text-xs">.env.local</code>
+              Supabase is not configured for this deployment. Add{' '}
+              <code className="mono text-xs">VITE_SUPABASE_URL</code> and{' '}
+              <code className="mono text-xs">VITE_SUPABASE_ANON_KEY</code> to the deployment environment,
+              then redeploy.
             </p>
           </Card>
         )}
