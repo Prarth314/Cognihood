@@ -97,6 +97,15 @@ const AppShell: React.FC<AppShellProps> = ({
 
         <div className="p-4 border-t border-[var(--border)] space-y-3">
           <SyncStatus />
+          <a
+            href="/legal.html"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-3 px-3 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >
+            <i className="fas fa-scale-balanced w-4 text-center" aria-hidden="true" />
+            Legal center
+          </a>
           {onSignOut && (
             <Button variant="ghost" className="w-full justify-start" onClick={onSignOut}>
               <i className="fas fa-right-from-bracket" aria-hidden="true" />

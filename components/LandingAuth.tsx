@@ -27,6 +27,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -148,11 +149,37 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   onChange={e => setPassword(e.target.value)}
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
                 />
-                <Button type="submit" className="w-full" size="lg" disabled={!supabaseReady || submitting}>
+                {isSignUp && (
+                  <label className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] p-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={legalAccepted}
+                      onChange={event => setLegalAccepted(event.target.checked)}
+                      required
+                    />
+                    <span className="text-sm">
+                      I confirm I am at least 18, agree to the{' '}
+                      <a className="underline" href="/terms.html" target="_blank" rel="noreferrer">Terms of Use</a>,
+                      and acknowledge the <a className="underline" href="/notice-at-collection.html" target="_blank" rel="noreferrer">Notice at Collection</a>,{' '}
+                      <a className="underline" href="/privacy.html" target="_blank" rel="noreferrer">Privacy Notice</a>, and{' '}
+                      <a className="underline" href="/safety.html" target="_blank" rel="noreferrer">Safety Notice</a>.
+                    </span>
+                  </label>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={!supabaseReady || submitting || (isSignUp && !legalAccepted)}
+                >
                   {isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
                 <div className="flex flex-col gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setIsSignUp(!isSignUp)}>
+                  <Button type="button" variant="ghost" onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setLegalAccepted(false);
+                  }}>
                     {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
                   </Button>
                   {!isSignUp && (
@@ -167,8 +194,8 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
 
         <div className="ui-caption text-center space-y-2">
           <p>Camera-derived attention analysis is local by default. Optional cloud enhancement requires explicit consent before each trip.</p>
-          <p>By creating an account you acknowledge this development build is not a medical device or a fitness-to-drive determination.</p>
-          <p><a className="underline" href="/privacy.html" target="_blank" rel="noreferrer">Privacy notice</a> · <a className="underline" href="/terms.html" target="_blank" rel="noreferrer">Development terms</a></p>
+          <p>This development build is not a medical device, emergency service, or fitness-to-drive determination.</p>
+          <p><a className="underline" href="/legal.html" target="_blank" rel="noreferrer">Legal center</a> · <a className="underline" href="/privacy.html" target="_blank" rel="noreferrer">Privacy</a> · <a className="underline" href="/terms.html" target="_blank" rel="noreferrer">Terms</a> · <a className="underline" href="/safety.html" target="_blank" rel="noreferrer">Safety</a></p>
         </div>
       </div>
     </div>
