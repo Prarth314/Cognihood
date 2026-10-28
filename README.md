@@ -50,7 +50,8 @@ The result is a web application that explores attention-support experiences whil
 - It does not diagnose fatigue, stress, impairment, or a medical condition.
 - It does not certify that a person is safe or unsafe to drive.
 - It does not record raw video in the application database.
-- It does not provide live navigation, V2X connectivity, or vehicle/cabin control.
+- It does not control the vehicle. An optional Raspberry Pi deployment can trigger a separate cabin buzzer alert.
+- It does not provide live navigation or V2X connectivity.
 - Its prototype comparison score is not a national percentile or population benchmark.
 - Browser motion classification is experimental and disabled by default.
 
@@ -147,6 +148,7 @@ Copy `.env.example` to `.env.local`, then replace the placeholders:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_publishable_key
 VITE_ENABLE_EXPERIMENTAL_MOTION=false
+VITE_ENABLE_HARDWARE_BRIDGE=false
 ```
 
 > [!WARNING]
@@ -232,6 +234,8 @@ VITE_ENABLE_EXPERIMENTAL_MOTION=false
 Do not add the Gemini key or Supabase service-role key to Vercel.
 
 </details>
+
+For the Raspberry Pi 5 kiosk, local GPIO alert bridge, and systemd/autostart setup, see the [Pi deployment guide](docs/RASPBERRY_PI_5_SETUP.md). Keep `VITE_ENABLE_HARDWARE_BRIDGE` disabled for ordinary web deployments.
 
 ### Database responsibilities
 

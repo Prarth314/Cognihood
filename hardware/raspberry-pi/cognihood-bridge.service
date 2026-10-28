@@ -1,0 +1,23 @@
+[Unit]
+Description=CogniHood local web app and Raspberry Pi GPIO bridge
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+SupplementaryGroups=gpio
+WorkingDirectory=/opt/cognihood
+Environment=PORT=3001
+Environment=GPIO_CHIP=gpiochip4
+Environment=GPIO_LINE=17
+ExecStart=/usr/bin/node /opt/cognihood/hardware/raspberry-pi/bridge.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
