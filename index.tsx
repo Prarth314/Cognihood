@@ -1,10 +1,13 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { inject } from '@vercel/analytics';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+
+inject();
 
 const savedTheme = localStorage.getItem('cognihood-theme') || 'system';
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
