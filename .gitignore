@@ -19,6 +19,7 @@ dist-ssr
 migrated_prompt_history/
 
 # Editor directories and files
+.cursor/
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -28,3 +29,11 @@ migrated_prompt_history/
 *.njsproj
 *.sln
 *.sw?
+
+# Private credentials and local security scan output
+*.pem
+*.key
+*.p12
+*.pfx
+gitleaks-report*.json
+gitleaks-report*.sarif

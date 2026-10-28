@@ -2,6 +2,7 @@ node_modules
 dist
 .git
 .github
+.cursor
 supabase
 docs
 migrated_prompt_history
