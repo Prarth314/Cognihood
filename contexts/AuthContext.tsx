@@ -22,6 +22,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const LEGAL_DOCUMENT_VERSION = '2026-10-28';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -106,7 +107,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error: err } = await getSupabase().auth.signUp({
       email,
       password,
-      options: { emailRedirectTo },
+      options: {
+        emailRedirectTo,
+        data: {
+          legal_document_version: LEGAL_DOCUMENT_VERSION,
+          legal_accepted_at: new Date().toISOString(),
+          age_18_confirmed: true,
+        },
+      },
     });
     if (err) {
       setError(err.message);

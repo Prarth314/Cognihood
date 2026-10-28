@@ -14,21 +14,26 @@ interface PreDriveGateProps {
 }
 
 const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
-  const [scanStarted] = useState(() => Date.now());
+  const [cameraConsent, setCameraConsent] = useState(false);
+  const [scanStarted, setScanStarted] = useState<number | null>(null);
   const [check, setCheck] = useState<PreDriveCheckResult | null>(null);
   const [tick, setTick] = useState(0);
   const [remoteAnalysisConsent, setRemoteAnalysisConsent] = useState(false);
   const bufferRef = React.useRef(new MetricsBuffer());
 
   const handleSnapshot = (snapshot: LocalFaceSnapshot) => {
+    if (scanStarted === null) return;
     bufferRef.current.add(snapshot);
     const result = evaluatePreDriveCheck(bufferRef.current.getInWindow(PRE_DRIVE_SCAN_MS + 5000), scanStarted);
     setCheck(result);
   };
 
-  const progress = Math.min(100, ((Date.now() - scanStarted) / PRE_DRIVE_SCAN_MS) * 100);
+  const progress = scanStarted === null
+    ? 0
+    : Math.min(100, ((Date.now() - scanStarted) / PRE_DRIVE_SCAN_MS) * 100);
 
   useEffect(() => {
+    if (scanStarted === null) return;
     const interval = setInterval(() => {
       setTick(t => t + 1);
       const result = evaluatePreDriveCheck(bufferRef.current.getInWindow(PRE_DRIVE_SCAN_MS + 5000), scanStarted);
@@ -38,6 +43,12 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
   }, [scanStarted]);
 
   void tick;
+
+  const beginCameraCheck = () => {
+    bufferRef.current = new MetricsBuffer();
+    setCheck(null);
+    setScanStarted(Date.now());
+  };
 
   return (
     <div className="flex flex-col gap-6 min-h-0">
@@ -52,17 +63,62 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-        <div className="relative rounded-xl overflow-hidden border border-[var(--border)] min-h-[240px] lg:min-h-[400px]">
-          <CameraPreview
-            isActive
-            onFrame={() => {}}
-            onLocalSnapshot={handleSnapshot}
-            remoteAnalysisEnabled={false}
-            stateColor="var(--primary)"
-          />
+        <div className="relative rounded-xl overflow-hidden border border-[var(--border)] min-h-[240px] lg:min-h-[400px] bg-[var(--bg-muted)]">
+          {scanStarted !== null ? (
+            <CameraPreview
+              isActive
+              onFrame={() => {}}
+              onLocalSnapshot={handleSnapshot}
+              remoteAnalysisEnabled={false}
+              stateColor="var(--primary)"
+            />
+          ) : (
+            <div className="h-full min-h-[240px] lg:min-h-[400px] flex flex-col items-center justify-center gap-3 p-8 text-center">
+              <i className="fas fa-camera text-3xl text-[var(--text-secondary)]" aria-hidden="true" />
+              <p className="ui-h2">Camera is off</p>
+              <p className="ui-body">Review the camera notice and choose whether to begin local processing.</p>
+            </div>
+          )}
         </div>
 
         <Card className="flex flex-col justify-center gap-6">
+          {scanStarted === null ? (
+            <div className="space-y-5">
+              <div>
+                <h2 className="ui-h2 mb-2">Camera processing notice</h2>
+                <p className="ui-body">
+                  CogniHood will process live camera frames on this device to estimate face landmarks, eye closure,
+                  blink activity, and head-pose variation. Raw video is not intentionally stored in the CogniHood
+                  database, and this feature is not designed to identify you.
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--warning)]/40 bg-[var(--warning-muted)] p-4 text-sm">
+                These experimental signals may be inaccurate and do not determine impairment, a medical condition,
+                attention, or fitness to drive. Complete this setup only while safely parked.
+              </div>
+              <label className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] p-4">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={cameraConsent}
+                  onChange={event => setCameraConsent(event.target.checked)}
+                />
+                <span className="text-sm">
+                  I am at least 18, have reviewed the{' '}
+                  <a className="underline" href="/privacy.html#camera" target="_blank" rel="noreferrer">camera privacy notice</a>{' '}
+                  and <a className="underline" href="/safety.html" target="_blank" rel="noreferrer">safety notice</a>,
+                  and consent to local face-landmark processing for this session.
+                </span>
+              </label>
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={onCancel}>Cancel</Button>
+                <Button className="flex-1" onClick={beginCameraCheck} disabled={!cameraConsent}>
+                  Enable camera check
+                </Button>
+              </div>
+            </div>
+          ) : (
+          <>
           <div>
             <h2 className="ui-h2 mb-2">Signal-quality check</h2>
             <p className="ui-body">
@@ -121,6 +177,8 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
                 Begin {remoteAnalysisConsent ? 'enhanced' : 'local-only'} monitoring
               </Button>
             </div>
+          )}
+          </>
           )}
         </Card>
       </div>

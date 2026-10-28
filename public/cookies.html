@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="CogniHood cookies, local storage, IndexedDB, authentication, and analytics notice."><title>Cookies &amp; Storage Notice | CogniHood</title><link rel="stylesheet" href="/legal.css"></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="/">Cogni<span>Hood</span></a><a class="back-link" href="/legal.html">Legal center</a></div></header>
+  <main id="content">
+    <p class="eyebrow">Browser storage</p><h1>Cookies and Local Storage Notice</h1>
+    <p class="lede">CogniHood currently uses browser storage for necessary sessions and preferences. Vercel Web Analytics is configured as a cookieless analytics service.</p>
+    <p class="meta"><strong>Effective:</strong> October 28, 2026 · <strong>Version:</strong> 2026-10-28</p>
+
+    <h2>Current technologies</h2>
+    <table>
+      <thead><tr><th>Technology</th><th>Purpose</th><th>Duration/control</th></tr></thead>
+      <tbody>
+        <tr><td>Supabase authentication storage</td><td>Keeps the user signed in, refreshes the session, and detects confirmation or recovery links.</td><td>Necessary for account sessions. Removed by sign-out, account deletion, expiration, or browser-data clearing.</td></tr>
+        <tr><td><code>cognihood-theme</code></td><td>Remembers light, dark, or system appearance.</td><td>Until changed or local storage is cleared.</td></tr>
+        <tr><td><code>cognihood_onboarding_done</code></td><td>Remembers that the onboarding tour was dismissed or completed.</td><td>Until local storage is cleared.</td></tr>
+        <tr><td><code>cognihood_supabase_migrated</code></td><td>Prevents repeating a legacy-data migration for the same account.</td><td>Until local storage is cleared.</td></tr>
+        <tr><td>Legacy <code>cognihood_db</code> IndexedDB</td><td>Reads older locally stored trip data for an optional migration to Supabase.</td><td>Eligible stores are cleared after a successful migration when default cleanup remains enabled.</td></tr>
+        <tr><td>Vercel Web Analytics</td><td>Provides aggregate page views, referrers, approximate location, device, browser, and operating-system statistics.</td><td>No third-party analytics cookie. A request-derived visitor hash resets daily; aggregate retention follows Vercel’s plan and terms.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Cookies</h2>
+    <p>The current CogniHood application does not intentionally set advertising, cross-site tracking, or marketing cookies. Authentication behavior may vary if Supabase changes its client implementation or if a future feature is introduced. This notice must be updated before any non-essential cookie is deployed.</p>
+
+    <h2>Analytics details</h2>
+    <p>Vercel Web Analytics may process a timestamp, page path, referrer, filtered query parameters, approximate city/country derived from the request, browser, operating system, and device category. CogniHood must not place email addresses, account identifiers, tokens, trip identifiers, or other personal information in public URL paths or analytics events.</p>
+
+    <h2>Your controls</h2>
+    <ul><li>Sign out to end the active application session.</li><li>Use browser settings to clear site data, local storage, and IndexedDB.</li><li>Block site storage through browser controls, understanding that authentication and preferences may stop working.</li><li>Use private-browsing mode to reduce persistence on a shared device.</li></ul>
+    <p>No consent banner is currently displayed because the implemented analytics is cookieless and the remaining storage supports user-requested functionality. Regional law and future features may require a consent-management platform; that determination must be reviewed before broader commercial launch.</p>
+
+    <h2>Changes</h2>
+    <p>If CogniHood adds advertising, marketing tags, session replay, additional analytics, or non-essential cookies, this notice and the consent experience will be updated before deployment.</p>
+    <nav class="legal-nav"><a href="/legal.html">Legal center</a><a href="/privacy.html">Privacy</a><a href="/subprocessors.html">Service providers</a></nav>
+  </main>
+  <footer class="site-footer"><p>Copyright © 2026 CogniHood.</p></footer>
+</body>
+</html>

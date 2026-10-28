@@ -1,3 +1,125 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CogniHood Privacy Notice</title><style>body{font:16px/1.6 system-ui;max-width:760px;margin:40px auto;padding:0 20px;color:#172033}h1,h2{line-height:1.2}a{color:#3156a3}</style></head>
-<body><main><h1>CogniHood development privacy notice</h1><p><strong>Last updated: October 13, 2026.</strong> This notice describes the current development build and must be reviewed by qualified counsel before a public launch.</p><h2>Data used</h2><p>CogniHood processes camera-derived facial landmarks, attention indicators, session events, account email, and session summaries. Raw video is not stored by the application. When you explicitly enable cloud enhancement for a session, periodically compressed frames are sent through a Supabase Edge Function to Google Gemini.</p><h2>Purpose and limitations</h2><p>The data supports experimental attention indicators and coaching. It is not used to diagnose a condition or certify fitness to drive. Synthetic prototype comparisons are not population statistics.</p><h2>Control</h2><p>Cloud enhancement is optional per session. You can export session records from Trip archives or permanently delete the account from the home screen. Account deletion cascades through CogniHood's Supabase tables.</p><h2>Before production</h2><p>The operator must add its legal entity, contact address, supported jurisdictions, exact retention periods, subprocessors, lawful basis, and request/appeal process before launch.</p><p><a href="/">Return to CogniHood</a></p></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="CogniHood Privacy Notice covering camera processing, account data, trip records, analytics, service providers, retention, and privacy rights.">
+  <title>Privacy Notice | CogniHood</title>
+  <link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="/">Cogni<span>Hood</span></a><a class="back-link" href="/legal.html">Legal center</a></div></header>
+  <main id="content">
+    <p class="eyebrow">Privacy</p>
+    <h1>Privacy Notice</h1>
+    <p class="lede">This notice explains how the current CogniHood development service processes personal information, camera-derived signals, session records, and website analytics.</p>
+    <p class="meta"><strong>Effective:</strong> October 28, 2026 · <strong>Version:</strong> 2026-10-28</p>
+
+    <div class="notice warning"><p><strong>Operator details are incomplete.</strong> The current operator is the CogniHood project maintainer identified through the <a href="https://github.com/Prarth314/Cognihood">project repository</a>. A commercial entity, postal address, dedicated privacy email, data-protection officer, and EU/UK representative have not been designated. Commercial launch must not rely on this draft without filling those gaps and obtaining counsel review.</p></div>
+
+    <nav class="toc" aria-label="Privacy notice contents"><strong>Contents</strong><ul>
+      <li><a href="#scope">Scope</a></li><li><a href="#collection">Information collected</a></li><li><a href="#camera">Camera and biometric notice</a></li><li><a href="#purposes">Purposes</a></li><li><a href="#sharing">Sharing</a></li><li><a href="#retention">Retention</a></li><li><a href="#rights">Your rights</a></li><li><a href="#regions">Regional disclosures</a></li><li><a href="#security">Security</a></li><li><a href="#children">Children</a></li><li><a href="#transfers">International transfers</a></li><li><a href="#changes">Changes and contact</a></li>
+    </ul></nav>
+
+    <h2 id="scope">1. Scope and roles</h2>
+    <p>This notice applies to the CogniHood web application, its hosted website, account system, optional cloud-enhanced analysis, and related support interactions. It does not govern third-party websites linked from CogniHood or a separately operated installation of the MIT-licensed source code.</p>
+    <p>For the hosted development service, the CogniHood operator determines why and how application data is processed. Vercel, Supabase, Google, and their infrastructure providers process certain data to provide hosting, authentication, database, model-delivery, and optional AI services.</p>
+
+    <h2 id="collection">2. Information we process</h2>
+    <table>
+      <thead><tr><th>Category</th><th>Examples</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td>Account and authentication</td><td>Email address, Supabase user identifier, email-confirmation status, authentication session, account timestamps, and security logs</td><td>You and Supabase Auth</td></tr>
+        <tr><td>Profile</td><td>CogniID, display name, and account preferences</td><td>You and account setup</td></tr>
+        <tr><td>Camera and sensor input</td><td>Live camera frames, face landmarks, eye-aspect estimates, blink activity, head-pose variation, signal quality, and optional browser-motion classifications</td><td>Your device after permission</td></tr>
+        <tr><td>Trip or session records</td><td>Start/end time, duration, scores, warning events, signal provenance, data-quality status, coaching notes, algorithm version, cloud-use status, and consent timestamp</td><td>Application calculations and your session</td></tr>
+        <tr><td>Consent and settings</td><td>Terms/privacy version, acceptance time, cloud-analysis choice, theme, onboarding completion, and legacy-migration status</td><td>Your choices and browser storage</td></tr>
+        <tr><td>Technical and analytics</td><td>Page URL, referrer, filtered query data, approximate city/country, device type, operating system, browser version, timestamps, request logs, errors, and rate-limit counters</td><td>Vercel, Supabase, your browser, and network requests</td></tr>
+        <tr><td>Support and legal requests</td><td>Information you provide when asking for support, asserting a privacy right, reporting abuse, or submitting a copyright complaint</td><td>You</td></tr>
+      </tbody>
+    </table>
+    <p>CogniHood does not request a government ID, payment card, precise GPS location, contact list, microphone recording, or vehicle-control data in the current build.</p>
+
+    <h2 id="camera">3. Camera, face geometry, and optional cloud analysis</h2>
+    <div class="notice danger"><p><strong>Camera processing may be sensitive.</strong> Some jurisdictions may regulate face geometry, face landmarks, or inferences from camera data as biometric or sensitive information even when the system does not identify a person.</p></div>
+    <ul>
+      <li><strong>Local by default:</strong> live frames and MediaPipe face landmarks are processed in browser memory. CogniHood does not intentionally write raw video to its application database.</li>
+      <li><strong>No identity recognition:</strong> the current application is not designed to establish identity, compare faces, create a reusable face-recognition template, or identify a person across sessions.</li>
+      <li><strong>Permission:</strong> the browser requests camera permission. You may deny or revoke it, but camera-dependent features will not work.</li>
+      <li><strong>Optional cloud enhancement:</strong> only after a separate per-session choice, compressed still frames may be sent to an authenticated Supabase Edge Function and then to the configured Google Gemini API.</li>
+      <li><strong>Vendor handling:</strong> Google’s processing and retention depend on the API plan and applicable Google terms. Unpaid Gemini services may permit product-improvement use and human review; production operation must use an appropriate commercial configuration and must not submit data until that configuration is verified.</li>
+      <li><strong>Stop control:</strong> ending a session or disabling cloud analysis stops new optional cloud-frame submissions. Browser and vendor logs may persist according to their own retention rules.</li>
+    </ul>
+
+    <h2 id="purposes">4. Why information is used</h2>
+    <ul>
+      <li>Authenticate accounts and prevent unauthorized access.</li>
+      <li>Provide local camera-signal checks, experimental attention indicators, warnings, trip summaries, archives, and personal historical references.</li>
+      <li>Provide optional cloud-enhanced interpretation when separately enabled.</li>
+      <li>Preserve user settings, migrate older local records, export data, and delete accounts.</li>
+      <li>Secure, debug, rate-limit, maintain, and improve the service.</li>
+      <li>Measure aggregate website usage with Vercel Web Analytics.</li>
+      <li>Comply with law, enforce terms, investigate abuse, and protect users and the service.</li>
+    </ul>
+    <p>CogniHood does not use its indicators to make legal, employment, insurance, credit, healthcare, or similarly significant decisions about a person. It does not sell personal information or use it for cross-context behavioral advertising.</p>
+
+    <h2>5. Legal bases where required</h2>
+    <p>Depending on jurisdiction and feature, processing may rely on performance of the requested service, consent (including camera permission and optional cloud analysis), legitimate interests in security and service operation, and compliance with legal obligations. Consent may be withdrawn for future optional processing. Withdrawal does not affect processing already lawfully completed.</p>
+
+    <h2 id="sharing">6. When information is disclosed</h2>
+    <p>Information may be disclosed to the service providers listed in the <a href="/subprocessors.html">Service Providers Notice</a>, to a successor in a properly governed business transaction, when you direct or consent to disclosure, or when reasonably necessary to comply with law, protect rights and safety, or investigate abuse. CogniHood does not currently sell personal information, share it for cross-context behavioral advertising, or rent user lists.</p>
+
+    <h2 id="retention">7. Retention and deletion</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Current handling</th></tr></thead>
+      <tbody>
+        <tr><td>Raw live video</td><td>Processed in volatile browser memory and not intentionally stored by the CogniHood database.</td></tr>
+        <tr><td>Optional cloud frames</td><td>Not intentionally stored in CogniHood tables. Supabase, Google, and infrastructure logs may retain request information under their applicable terms.</td></tr>
+        <tr><td>Trip summaries and profile data</td><td>Retained while the account remains active or until deleted, subject to legal, security, backup, and integrity exceptions.</td></tr>
+        <tr><td>Legacy IndexedDB data</td><td>Read for an optional one-time migration and cleared after a successful migration when the default deletion option remains enabled.</td></tr>
+        <tr><td>Browser settings</td><td>Remain on the device until cleared by the user, application logic, or browser.</td></tr>
+        <tr><td>Analytics</td><td>Vercel uses a daily-reset visitor hash and no third-party analytics cookie; aggregate records follow Vercel’s service retention.</td></tr>
+      </tbody>
+    </table>
+    <p><strong>No complete commercial retention schedule has been adopted yet.</strong> A fixed schedule, backup-deletion window, legal-hold procedure, and vendor-retention matrix are required before commercial launch.</p>
+
+    <h2 id="rights">8. Your choices and privacy rights</h2>
+    <p>Depending on applicable law, you may have rights to access, know, correct, export, delete, restrict, object, withdraw consent, opt out of sale or targeted advertising, appeal a refusal, and lodge a complaint with a regulator. CogniHood will not discriminate against a user for exercising an applicable privacy right.</p>
+    <ul>
+      <li>Use the in-product export feature to obtain available account records.</li>
+      <li>Use the in-product account-deletion control to request permanent deletion of the account and associated CogniHood tables.</li>
+      <li>Disable cloud analysis for a session or revoke camera access through browser settings.</li>
+      <li>Clear local storage and IndexedDB through browser controls.</li>
+    </ul>
+    <p>For a request not supported in-product, contact the maintainer through the method listed on the <a href="https://github.com/Prarth314">GitHub profile</a> and request a private channel. Do not post sensitive data publicly. Identity verification may be required. An authorized agent may need to provide proof of authority.</p>
+
+    <h2 id="regions">9. Regional disclosures</h2>
+    <h3>California</h3>
+    <p>The table in Section 2 describes categories of identifiers, internet activity, audiovisual information, inferences, and potentially sensitive information processed during the preceding 12 months. CogniHood does not knowingly sell or share personal information for cross-context behavioral advertising. Where applicable, California residents may request access, correction, deletion, portability, limitation of sensitive-information use, and non-discrimination. Because no sale or advertising share occurs, a “Do Not Sell or Share” mechanism is not currently offered.</p>
+    <h3>Texas and other U.S. states</h3>
+    <p>State laws may provide rights to confirm processing, access, correct, delete, obtain portable data, opt out of certain targeted advertising, sale, or profiling, and appeal a decision. CogniHood does not use face data for unique identification, but camera-derived face geometry may still trigger special notice, consent, security, and destruction obligations. Commercial deployment requires state-by-state counsel review.</p>
+    <h3>EEA, United Kingdom, and Switzerland</h3>
+    <p>Users may have rights of access, rectification, erasure, restriction, portability, objection, consent withdrawal, and complaint to a supervisory authority. CogniHood does not make decisions producing legal or similarly significant effects solely through automated processing. An EU/UK representative, transfer assessment, vendor data-processing agreements, and confirmed lawful bases are not yet in place; the current development service should not be marketed in those regions until these items are completed.</p>
+
+    <h2 id="security">10. Security</h2>
+    <p>Measures in the current design include HTTPS, browser security headers, authenticated Supabase sessions, Row Level Security, bounded inputs, server-side secrets, origin checks, per-user/global AI quotas, data minimization, optional cloud processing, and account deletion. No system is perfectly secure. Users should use a unique password, protect their email account, keep devices updated, and report suspected compromise privately.</p>
+
+    <h2 id="children">11. Children and age limits</h2>
+    <p>The hosted service is intended only for adults aged 18 or older. It is not directed to children, and the operator does not knowingly collect children’s personal information. Do not create an account or enable camera processing for a child. If the operator learns that prohibited child data was collected, it will be addressed and deleted as required by law.</p>
+
+    <h2 id="transfers">12. International transfers</h2>
+    <p>Service providers may process data in the United States and other countries. Those countries may have different privacy protections. Required contractual and transfer safeguards must be confirmed before offering the service in a jurisdiction that requires them.</p>
+
+    <h2>13. Do Not Track and Global Privacy Control</h2>
+    <p>Browser “Do Not Track” signals are not consistently standardized. CogniHood does not sell data or use cross-context behavioral advertising. A recognized opt-out signal will be treated consistently with those existing practices where applicable.</p>
+
+    <h2 id="changes">14. Changes and contact</h2>
+    <p>Material changes will be reflected by a new effective date and, when appropriate, an in-product notice or renewed acknowledgement. Continued use after an effective change may be subject to the updated notice where permitted by law.</p>
+    <p>Current public contact: <a href="https://github.com/Prarth314/Cognihood">CogniHood repository</a>. A verified private privacy-request channel must be added before commercial launch.</p>
+
+    <nav class="legal-nav" aria-label="Related legal documents"><a href="/legal.html">Legal center</a><a href="/terms.html">Terms</a><a href="/safety.html">Safety</a><a href="/cookies.html">Cookies &amp; storage</a><a href="/subprocessors.html">Service providers</a></nav>
+  </main>
+  <footer class="site-footer"><p>Copyright © 2026 CogniHood.</p><p>This operational draft is not legal advice.</p></footer>
+</body>
+</html>

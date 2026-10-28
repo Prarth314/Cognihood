@@ -262,7 +262,7 @@ CogniHood uses defense in depth:
 - Export avoids embedding the raw Auth UUID, and account deletion is available in-product.
 - Local environment files, recordings, generated output, and Vercel metadata are excluded from Git.
 
-Read the [commercial-readiness notes](docs/COMMERCIAL_READINESS.md) before operating a public environment. The bundled [privacy notice](public/privacy.html) and [development terms](public/terms.html) are development placeholders and must be replaced with counsel-approved documents before commercial launch.
+Read the [commercial-readiness notes](docs/COMMERCIAL_READINESS.md) before operating a public environment. The website now includes a complete development-stage [legal center](public/legal.html) with privacy, notice-at-collection, terms, safety, AI transparency, acceptable-use, analytics/storage, provider, copyright, accessibility, and MIT-license pages. These are operational drafts—not a substitute for counsel—and still require verified operator details and jurisdiction-specific approval before commercial launch.
 
 ### Data lifecycle
 
@@ -294,7 +294,7 @@ Cognihood/
 ├── contexts/            Authentication and theme state
 ├── docs/                Commercial-readiness documentation
 ├── hooks/               Supabase Realtime integration
-├── public/              Static privacy and development-terms pages
+├── public/              Legal center, privacy, terms, safety, notices, and static assets
 ├── services/            Vision, temporal analysis, storage, and coaching
 ├── supabase/
 │   ├── functions/       Authenticated Gemini and account-deletion functions

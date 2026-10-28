@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="CogniHood AI transparency notice describing local computer vision, optional Gemini processing, limitations, and user controls."><title>AI Transparency Notice | CogniHood</title><link rel="stylesheet" href="/legal.css"></head>
+<body>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="/">Cogni<span>Hood</span></a><a class="back-link" href="/legal.html">Legal center</a></div></header>
+  <main id="content">
+    <p class="eyebrow">Automated processing</p><h1>AI Transparency Notice</h1>
+    <p class="lede">CogniHood combines local computer vision, deterministic calculations, and optional generative-AI assistance. This notice explains what each part does and what it cannot establish.</p>
+    <p class="meta"><strong>Effective:</strong> October 28, 2026 · <strong>Version:</strong> 2026-10-28</p>
+
+    <h2>Local computer vision</h2>
+    <p>MediaPipe Face Landmarker estimates facial landmarks from live browser-camera frames. CogniHood derives experimental measurements such as eye-aspect ratio, blink activity, PERCLOS, head-pose variation, and signal quality. Rolling calculations and a conservative state engine convert those signals into prototype warning states.</p>
+
+    <h2>Optional Gemini assistance</h2>
+    <p>When separately enabled for a session, periodically compressed frames may pass through an authenticated Supabase Edge Function to a configured Google Gemini model. The function requests structured observations, validates output shape and numeric ranges, applies timeouts and quotas, and combines the result with local signals. A failed cloud call is not treated as evidence of safety.</p>
+
+    <h2>What the system does not do</h2>
+    <ul><li>It does not recognize identity or compare a face against an identity database.</li><li>It does not diagnose fatigue, impairment, illness, stress, or a medical condition.</li><li>It does not prove attention, intent, cognition, gaze target, or fitness to drive.</li><li>It does not make legal or similarly significant decisions about a person.</li><li>It does not control a vehicle or contact emergency services.</li></ul>
+
+    <h2>Human control</h2>
+    <p>The user chooses whether to grant camera permission and whether to enable cloud enhancement for each session. The user can disable cloud analysis, stop a session, export records, and request account deletion. The driver remains responsible for driving decisions and must stop safely whenever conditions warrant.</p>
+
+    <h2>Known risks</h2>
+    <p>False positives, false negatives, delay, model hallucination, device differences, demographic performance differences, and failure under difficult lighting or pose are possible. Independent bias, accessibility, human-factors, and safety validation has not been completed. Do not use the service for high-impact decisions or claim validated performance.</p>
+
+    <h2>Data and vendor terms</h2>
+    <p>Local processing remains on the device except for downloaded model/runtime assets and normal service requests. Optional cloud processing is governed by the <a href="/privacy.html">Privacy Notice</a> and <a href="/subprocessors.html">Service Providers Notice</a>. Google’s handling differs by API plan; an appropriate commercial configuration must be verified before production use.</p>
+    <nav class="legal-nav"><a href="/legal.html">Legal center</a><a href="/privacy.html">Privacy</a><a href="/safety.html">Safety</a><a href="/acceptable-use.html">Acceptable use</a></nav>
+  </main>
+  <footer class="site-footer"><p>Copyright © 2026 CogniHood.</p></footer>
+</body>
+</html>
