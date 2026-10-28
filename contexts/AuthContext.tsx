@@ -94,20 +94,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithEmail = async (email: string, password: string) => {
     setError(null);
     const { error: err } = await getSupabase().auth.signInWithPassword({ email, password });
-    if (err) setError(err.message);
+    if (err) {
+      setError(err.message);
+      throw err;
+    }
   };
 
   const signUpWithEmail = async (email: string, password: string) => {
     setError(null);
-    const { error: err } = await getSupabase().auth.signUp({ email, password });
-    if (err) setError(err.message);
+    const emailRedirectTo = `${window.location.origin}/`;
+    const { error: err } = await getSupabase().auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo },
+    });
+    if (err) {
+      setError(err.message);
+      throw err;
+    }
   };
 
   const sendPasswordReset = async (email: string) => {
     setError(null);
     const redirectTo = `${window.location.origin}/`;
     const { error: err } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo });
-    if (err) setError(err.message);
+    if (err) {
+      setError(err.message);
+      throw err;
+    }
   };
 
   const signOut = async () => {
