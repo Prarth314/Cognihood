@@ -36,9 +36,9 @@ import { saveTrip, getBaseline } from './services/tripStore';
 import { requestMotionPermission, startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
 import { createLocalSafetyAssessment } from './services/localSafetyService';
-import { vhal } from './services/hardware/vhal';
-import { MockProvider } from './services/hardware/providers/mockProvider';
-import { safetyController } from './services/hardware/safetyController';
+import { vhal } from './src/services/hardware/vhal';
+import { MockProvider } from './src/services/hardware/providers/mockProvider';
+import { safetyController } from './src/services/hardware/safetyController';
 
 const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
   [SafetyState.SAFE]: { text: 'var(--success)', border: 'var(--success)' },

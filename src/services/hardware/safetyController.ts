@@ -1,6 +1,6 @@
 
 import { vhal } from './vhal';
-import { SafetyAssessment, SafetyState } from '../../types';
+import { SafetyAssessment, SafetyState } from './hardwareTypes';
 import { VehicleSignals } from './hardwareTypes';
 
 class SafetyController {
