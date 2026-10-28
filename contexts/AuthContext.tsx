@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured, checkSupabaseConnection } from '../services/supabaseClient';
 import { getProfile } from '../services/tripStore';
+import { getSignupRedirectUrl, type AuthRedirectNotice } from '../services/authRedirect';
 
 interface AuthContextValue {
   user: User | null;
@@ -13,9 +14,11 @@ interface AuthContextValue {
   supabaseReady: boolean;
   supabaseConnected: boolean;
   error: string | null;
+  authNotice: AuthRedirectNotice | null;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
+  resendConfirmation: (email: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -24,7 +27,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const LEGAL_DOCUMENT_VERSION = '2026-10-28.2';
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: AuthRedirectNotice | null }> = ({ children, authRedirect = null }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [cogniId, setCogniId] = useState<string | null>(null);
@@ -76,21 +79,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('online', refreshConnection);
     window.addEventListener('offline', markOffline);
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      onAuthenticated(s).finally(() => setLoading(false));
-    });
+    let active = true;
+    let initializing = true;
+
+    const initialize = async () => {
+      try {
+        // Confirmation verifies the email, then requires an explicit password login.
+        // Clear any existing local session rather than silently opening the app.
+        if (authRedirect) {
+          const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+          if (signOutError) throw signOutError;
+        }
+        if (!active) return;
+        const { data: { session: s }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (active) await onAuthenticated(s);
+      } catch {
+        if (active) setError('We could not initialize your session. Refresh the page and try signing in again.');
+      } finally {
+        initializing = false;
+        if (active) setLoading(false);
+      }
+    };
+    void initialize();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      window.setTimeout(() => { void onAuthenticated(s); }, 0);
+      if (initializing) return;
+      window.setTimeout(() => { if (active) void onAuthenticated(s); }, 0);
     });
 
     return () => {
+      active = false;
       subscription.unsubscribe();
       window.clearInterval(connectionInterval);
       window.removeEventListener('online', refreshConnection);
       window.removeEventListener('offline', markOffline);
     };
-  }, [supabaseReady, onAuthenticated]);
+  }, [supabaseReady, onAuthenticated, authRedirect]);
 
   const signInWithEmail = async (email: string, password: string) => {
     setError(null);
@@ -103,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUpWithEmail = async (email: string, password: string) => {
     setError(null);
-    const emailRedirectTo = `${window.location.origin}/`;
+    const emailRedirectTo = getSignupRedirectUrl(window.location.origin);
     const { error: err } = await getSupabase().auth.signUp({
       email,
       password,
@@ -126,6 +151,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     const redirectTo = `${window.location.origin}/`;
     const { error: err } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo });
+    if (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const resendConfirmation = async (email: string) => {
+    setError(null);
+    const { error: err } = await getSupabase().auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: getSignupRedirectUrl(window.location.origin) },
+    });
     if (err) {
       setError(err.message);
       throw err;
@@ -157,9 +195,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supabaseReady,
         supabaseConnected,
         error,
+        authNotice: authRedirect,
         signInWithEmail,
         signUpWithEmail,
         sendPasswordReset,
+        resendConfirmation,
         deleteAccount,
         signOut,
         clearError: () => setError(null),

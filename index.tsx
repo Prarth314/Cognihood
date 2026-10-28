@@ -6,7 +6,9 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { consumeEmailConfirmationRedirect } from './services/authRedirect';
 
+const authRedirect = consumeEmailConfirmationRedirect(window);
 inject();
 
 const savedTheme = localStorage.getItem('cognihood-theme') || 'system';
@@ -24,7 +26,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ThemeProvider>
-      <AuthProvider>
+      <AuthProvider authRedirect={authRedirect}>
         <App />
       </AuthProvider>
     </ThemeProvider>

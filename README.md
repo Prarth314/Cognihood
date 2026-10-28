@@ -169,6 +169,8 @@ Then configure Supabase Auth:
 - Keep anonymous, phone, and social providers disabled unless the product policy changes.
 - Configure custom SMTP, CAPTCHA, redirect URLs, and abuse limits before public launch.
 
+Email verification returns users to CogniHood's sign-in form before they enter their password. Apply the exact hosted redirect settings and branded email template in the [email confirmation setup guide](docs/EMAIL_CONFIRMATION_SETUP.md).
+
 ### 4. Start development
 
 ```bash
