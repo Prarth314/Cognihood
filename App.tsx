@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import CameraPreview from './components/CameraPreview';
 import MetricsPanel from './components/MetricsPanel';
@@ -37,6 +36,9 @@ import { saveTrip, getBaseline } from './services/tripStore';
 import { requestMotionPermission, startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
 import { createLocalSafetyAssessment } from './services/localSafetyService';
+import { vhal } from './services/hardware/vhal';
+import { MockProvider } from './services/hardware/providers/mockProvider';
+import { safetyController } from './services/hardware/safetyController';
 
 const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
   [SafetyState.SAFE]: { text: 'var(--success)', border: 'var(--success)' },
@@ -122,6 +124,7 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const leaveDashboard = useCallback(async () => {
+    vhal.disconnect();
     stopMotionListener();
     const saved = await endTrip();
     if (!saved) return false;
@@ -139,6 +142,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentView !== 'dashboard' || !user) return;
+
+    vhal.setProvider(new MockProvider());
+    vhal.connect();
 
     tripSessionRef.current = new TripSession(user.id, remoteEnabledAtStartRef.current);
     if (import.meta.env.VITE_ENABLE_EXPERIMENTAL_MOTION === 'true') {
@@ -197,6 +203,7 @@ const App: React.FC = () => {
         eligibility: elig,
       };
       setAssessment(updated);
+      safetyController.processAssessment(updated);
       tripSessionRef.current?.recordAssessment(updated, temporal);
     } else if (temporal.sampleCount > 0) {
       const localAssessment = createLocalSafetyAssessment(temporal, snapshot);
@@ -220,6 +227,7 @@ const App: React.FC = () => {
       const full = { ...result, temporal: updatedTemporal, eligibility: elig };
       setRemoteAnalysisError(null);
       setAssessment(full);
+      safetyController.processAssessment(full);
       setHistory(prev => [...prev.slice(-20), full]);
       tripSessionRef.current?.recordAssessment(full, updatedTemporal);
     } catch (err) {
