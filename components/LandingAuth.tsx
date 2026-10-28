@@ -16,11 +16,13 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     supabaseReady,
     supabaseConnected,
     error,
+    authNotice,
     cogniId,
     user,
     signInWithEmail,
     signUpWithEmail,
     sendPasswordReset,
+    resendConfirmation,
     clearError,
   } = useAuth();
 
@@ -29,7 +31,8 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(authNotice?.message ?? null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(authNotice?.kind === 'error');
 
   React.useEffect(() => {
     if (user) onAuthenticated();
@@ -43,12 +46,35 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
-        setNotice('Check your email to confirm the account before signing in.');
+        setIsSignUp(false);
+        setPassword('');
+        setAwaitingConfirmation(true);
+        setNotice('Check your email and select Confirm email. You will return to CogniHood to sign in with your email and password.');
       } else {
         await signInWithEmail(email, password);
       }
-    } catch {
+    } catch (err) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'email_not_confirmed') {
+        setAwaitingConfirmation(true);
+      }
       // AuthContext exposes the sanitized provider error in the form alert.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setNotice('Enter your email address above to request a new confirmation link.');
+      return;
+    }
+    setSubmitting(true);
+    clearError();
+    try {
+      await resendConfirmation(email);
+      setNotice('If this address has an account awaiting confirmation, a new email has been sent. Open the latest link, then sign in here.');
+    } catch {
+      // AuthContext exposes provider rate-limit and delivery errors.
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +132,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
         <Card>
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="ui-h2">Sign in</h2>
+              <h2 className="ui-h2">{isSignUp ? 'Create account' : 'Sign in'}</h2>
               <Badge tone={supabaseConnected ? 'success' : supabaseReady ? 'error' : 'warning'}>
                 {supabaseReady ? (supabaseConnected ? 'Connected' : 'Offline') : 'Not configured'}
               </Badge>
@@ -185,6 +211,11 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   {!isSignUp && (
                     <Button type="button" variant="ghost" onClick={handlePasswordReset} disabled={submitting}>
                       Forgot password?
+                    </Button>
+                  )}
+                  {!isSignUp && awaitingConfirmation && (
+                    <Button type="button" variant="ghost" onClick={handleResendConfirmation} disabled={!supabaseReady || submitting}>
+                      Resend confirmation email
                     </Button>
                   )}
                 </div>
