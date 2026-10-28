@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Terms governing use of the CogniHood development service.">
+  <meta name="description" content="CogniHood Terms of Use, including detailed development and beta participation terms, testing limits, privacy choices, data resets, support, and service changes.">
   <title>Terms of Use | CogniHood</title>
   <link rel="stylesheet" href="/legal.css">
 </head>
@@ -14,10 +14,11 @@
     <p class="eyebrow">Agreement</p>
     <h1>Terms of Use</h1>
     <p class="lede">These terms govern access to the CogniHood hosted development service. By creating an account or using the service, you agree to them.</p>
-    <p class="meta"><strong>Effective:</strong> October 28, 2026 · <strong>Version:</strong> 2026-10-28</p>
+    <p class="meta"><strong>Effective:</strong> October 28, 2026 · <strong>Version:</strong> 2026-10-28.2</p>
 
     <div class="notice danger"><p><strong>Critical safety limitation.</strong> CogniHood is an experimental attention-support tool—not a medical device, emergency service, navigation system, vehicle-control system, or determination that anyone is fit to drive. Never rely on it as the sole basis for a safety decision.</p></div>
     <div class="notice warning"><p><strong>Development terms.</strong> No commercial entity, paid plan, governing-law clause, arbitration provision, warranty program, service-level commitment, or dedicated support channel has been finalized. Counsel must approve replacement commercial terms before paid launch.</p></div>
+    <nav class="legal-nav" aria-label="Key terms sections"><a href="#development">Development &amp; beta terms</a><a href="#data-resets">Test data &amp; resets</a><a href="#reporting">Reporting problems</a><a href="#changes">Updates to these terms</a><a href="#contact">Contact</a></nav>
 
     <h2>1. Who may use CogniHood</h2>
     <p>You must be at least 18 years old, legally able to enter a contract, and permitted to use the service where you are located. Do not use the service on behalf of another person without authority, or where camera processing, driving-related technology, or AI processing is prohibited.</p>
@@ -61,8 +62,55 @@
     <h2>9. Third-party services</h2>
     <p>CogniHood depends on third-party hosting, authentication, database, model, CDN, and AI services. Their terms and availability may change. The operator is not responsible for third-party services beyond the extent required by law. Review the <a href="/subprocessors.html">Service Providers Notice</a>.</p>
 
-    <h2>10. Changes, availability, and beta status</h2>
-    <p>The service may change, experience downtime, lose data, impose limits, or be discontinued. Features may be added, removed, simulated, or disabled without a service-level guarantee. Material legal changes will receive an updated effective date and, when appropriate, a renewed acknowledgement.</p>
+    <section id="development" aria-labelledby="development-heading">
+      <h2 id="development-heading">10. Development and beta participation terms</h2>
+      <p>These additional terms apply while CogniHood is described as a development build, prototype, preview, alpha, beta, or experimental release. Participation is voluntary. The purpose is to evaluate the application and identify problems before a broader release. Access does not establish that the application has passed independent safety, clinical, automotive, accessibility, or performance certification.</p>
+
+      <h3>10.1 What you are evaluating</h3>
+      <p>The development service may include account access, camera-based attention estimates, pre-drive checks, trip summaries, local preferences, and optional AI-assisted explanations. A visible button, sample screen, repository feature, or roadmap entry does not guarantee that a feature is available in the deployed version. Demonstration or simulated information must be understood as sample information rather than a measurement of your driving or health.</p>
+      <p>Models, thresholds, scoring methods, and data formats may change between releases. Scores from different versions may not be comparable. A previous score, baseline, or completed check does not establish that you can drive safely now or later.</p>
+
+      <h3>10.2 Where and how to test</h3>
+      <p>Begin evaluation while stationary in a safe place. Configure permissions, inspect results, take notes, and submit feedback only while safely parked. Do not deliberately become tired, distracted, impaired, or otherwise unsafe to trigger a warning. Do not simulate emergencies on public roads or ask another person to take a driving risk for a test.</p>
+      <p>Any evaluation involving a moving vehicle requires an independently appropriate, lawful test arrangement and compliance with the <a href="/safety.html">Safety Notice</a>. Access to this beta does not authorize public-road experiments, professional driver assessment, or vehicle-control integration.</p>
+
+      <h3>10.3 Your device and connection</h3>
+      <p>You are responsible for obtaining and safely configuring a suitable device, camera, supported browser, power supply, and internet connection. Browser permissions, camera quality, screen locking, background-tab restrictions, power-saving settings, CPU load, heat, and network interruptions can stop or delay processing. Mobile data, electricity, and third-party device costs are your responsibility.</p>
+      <p>Compatibility with Raspberry Pi, custom cameras, mounts, operating systems, or other hardware is not guaranteed. An integration must be tested separately; running the software on a device does not certify that device, its mounting, its electrical installation, or its use in a vehicle. Never connect experimental hardware to vehicle controls.</p>
+
+      <h3>10.4 Availability, quotas, and unfinished features</h3>
+      <p>During development, authentication, email delivery, cloud saving, account deletion, AI responses, and other functions may be interrupted or unavailable. Deployment changes, missing configuration, maintenance, vendor outages, abuse controls, and exhausted quotas may affect access. A connected status indicates a connectivity check; it does not certify that every feature is working.</p>
+      <p>There is no guaranteed uptime, response time, processing frequency, storage capacity, recovery time, or support response for this free development release. Limits may be introduced or adjusted to protect the service and control costs. Where reasonably practicable, significant planned interruptions will be communicated through the application or project repository; emergency security or safety changes may take effect immediately.</p>
+
+      <h3 id="data-resets">10.5 Test data, migrations, and resets</h3>
+      <p>Development data may be incomplete, duplicated, corrupted, lost, or incompatible with a later version. Database migrations or necessary resets can remove test accounts, preferences, baselines, and trip history. Do not use the beta as your only copy of records that you need to keep. Use export tools when available and check that an export is readable before relying on it.</p>
+      <p>A reset is not permission to ignore privacy requests or extend retention. Personal information remains subject to the <a href="/privacy.html">Privacy Notice</a> and applicable law. Where a planned reset affects stored personal information, the operator will aim to provide reasonable notice and an export opportunity when feasible. Backups and deletion timing are described in the Privacy Notice; immediate erasure from every backup is not promised.</p>
+
+      <h3>10.6 Privacy choices during testing</h3>
+      <p>Use your own account and camera, and avoid capturing passengers, bystanders, private documents, or unrelated surroundings. Camera permission and optional cloud enhancement are separate choices. Acceptance of these Terms does not consent to all future processing, authorize biometric identification, or allow unrelated use of your camera data. Withdrawing optional consent may make the related feature unavailable.</p>
+      <p>Review the <a href="/notice-at-collection.html">Notice at Collection</a> before providing information and the <a href="/ai-notice.html">AI Transparency Notice</a> before enabling cloud analysis. Do not send sensitive personal information to an AI provider unless the specific feature, disclosure, consent, and provider configuration support that processing. Beta participation does not itself authorize model training, advertising use, or sale of your personal information.</p>
+
+      <h3 id="reporting">10.7 Bugs, safety concerns, and security reports</h3>
+      <p>For an ordinary bug, describe what you expected, what happened, the approximate time, the browser and device, and steps to reproduce it safely. State whether the result used a live camera, a sample, or optional cloud analysis. Remove personal information from screenshots and logs before sharing them. A report does not guarantee a fix, reward, response deadline, or release date.</p>
+      <p>If a warning or screen appears unsafe, stop using the affected feature and report it once you are safely parked. CogniHood does not monitor reports continuously and is not an emergency-response channel. Contact local emergency services directly when needed.</p>
+      <p>Never post passwords, tokens, API keys, face images, private trip records, or an exploitable security issue in a public issue. For sensitive reports, request a private contact method from the maintainer. Testing access does not authorize accessing another account, extracting other users' data, disruptive load testing, or bypassing safeguards. There is currently no published bug-bounty reward or separate security-testing authorization.</p>
+
+      <h3>10.8 Feedback, publicity, and contributions</h3>
+      <p>You may choose whether to submit feedback. The feedback permission in section 8 covers suggestions you voluntarily share; it does not transfer ownership of your account information, face images, trip records, or other personal information. Public GitHub issues, comments, and pull requests can remain visible under GitHub's rules, so do not use them for private requests.</p>
+      <p>Beta participation does not impose a confidentiality agreement or authorize the operator to use your name, likeness, or testimonial in marketing. Separate permission is needed for that use. Code contributions remain subject to the repository's contribution instructions and applicable license. Participation does not create employment, a partnership, equity, compensation, or a right to influence the roadmap.</p>
+
+      <h3>10.9 Price and transition to a commercial release</h3>
+      <p>The current hosted development release has no finalized paid plan. Testing does not create a subscription, automatic renewal, payment obligation to CogniHood, or entitlement to free access forever. Separately purchased hardware, network access, or third-party services remain subject to their own charges and terms.</p>
+      <p>Before any paid offer, the operator must disclose the price, billing period, renewal rules, cancellation method, refund terms, taxes, and relevant service conditions. A beta account will not be charged merely because the service later becomes commercial. Paid access requires a separate, clearly presented purchase decision. Test accounts and data are not guaranteed to migrate to a commercial release; any available migration arrangements will be explained before the transition where reasonably practicable.</p>
+
+      <h3>10.10 Leaving or ending the beta</h3>
+      <p>You may stop participating at any time, revoke browser camera permission, and request account deletion. If an in-product export or deletion function fails, use the contact route in section 17 to request a private support channel. Signing out, uninstalling a browser, or clearing local storage does not by itself delete cloud account records.</p>
+      <p>The operator may pause or end the beta, disable an unsafe feature, or discontinue the service. When feasible, notice and an opportunity to export data will be provided before a planned shutdown. Urgent legal, security, safety, or vendor restrictions may require immediate action. Ending the beta does not cancel privacy obligations, legally required remedies, or rights that cannot be waived.</p>
+
+      <h3 id="changes">10.11 Changes to these terms</h3>
+      <p>Each published revision identifies an effective date and version. Material changes will be explained through a conspicuous in-product notice or the account email where practicable, with an opportunity to review them before they take effect except when an urgent legal or security change requires otherwise. Where required by law or the nature of the change, renewed agreement or separate consent will be requested. A revised privacy purpose is not authorized merely by updating these Terms.</p>
+      <p>You may stop using the service if you do not accept revised terms. New terms are not intended to retrospectively remove rights or remedies for events that occurred before their effective date. The <a href="https://github.com/Prarth314/Cognihood/commits/main/public/terms.html">repository history</a> records published source revisions. The preceding version is <a href="https://github.com/Prarth314/Cognihood/blob/daaa5baff940be617429787cfeb5b33d9d542632/public/terms.html">2026-10-28</a>.</p>
+    </section>
 
     <h2>11. Suspension and termination</h2>
     <p>You may stop using the service and use the in-product account-deletion control. The operator may suspend or terminate access for material breach, unlawful activity, security risk, extended inactivity, service discontinuation, or as required by law. Provisions that by nature should survive—such as intellectual property, disclaimers, liability limits, and dispute obligations—survive termination.</p>
@@ -73,7 +121,7 @@
 
     <h2>13. Limitation of liability</h2>
     <p><strong>TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE OPERATOR, CONTRIBUTORS, AND SERVICE PROVIDERS WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES; LOSS OF DATA, REVENUE, PROFITS, GOODWILL, OR OPPORTUNITY; PERSONAL INJURY OR PROPERTY DAMAGE ATTRIBUTABLE TO IMPROPER RELIANCE; OR DAMAGES ARISING FROM SERVICE INTERRUPTION, SENSOR ERROR, AI OUTPUT, OR UNAUTHORIZED ACCESS.</strong></p>
-    <p>Where liability cannot be excluded, aggregate liability arising from the free development service will not exceed the greater of USD $100 or the amount you paid for the hosted service in the twelve months before the event. This limit does not apply where prohibited by law, including liability that cannot legally be limited.</p>
+    <p>Subject to applicable law, aggregate liability for claims arising from the free development service is limited to the greater of USD $100 or the amount you paid for the hosted service in the twelve months before the event. No exclusion or cap in these Terms applies to fraud, deliberate misconduct, gross negligence, death or personal injury caused by negligence where liability cannot lawfully be limited, or any other liability or consumer remedy that applicable law does not allow the operator to exclude or restrict. These Terms do not determine whether a particular exclusion is enforceable in your jurisdiction.</p>
 
     <h2>14. Indemnity</h2>
     <p>To the extent permitted by law, you agree to defend and indemnify the operator and contributors from third-party claims arising from your unlawful use, violation of these Terms, infringement, unauthorized surveillance or biometric processing, or unsafe integration with a vehicle or device. This obligation does not apply to the extent a claim results from the indemnified party’s own unlawful conduct.</p>
@@ -84,7 +132,7 @@
     <h2>16. General terms</h2>
     <p>If a provision is unenforceable, it will be limited to the minimum extent necessary and the remainder will continue. Failure to enforce a provision is not a waiver. You may not transfer these Terms without permission; the operator may transfer them with the service subject to law. These Terms, the Privacy Notice, Safety Notice, and Acceptable Use Policy form the current agreement for the hosted development service.</p>
 
-    <h2>17. Contact</h2>
+    <h2 id="contact">17. Contact</h2>
     <p>Current public contact: <a href="https://github.com/Prarth314/Cognihood">CogniHood repository</a>. Do not post account data, face images, trip records, passwords, or other sensitive information in a public issue. A dedicated legal contact must be added before commercial launch.</p>
 
     <nav class="legal-nav" aria-label="Related legal documents"><a href="/legal.html">Legal center</a><a href="/privacy.html">Privacy</a><a href="/safety.html">Safety</a><a href="/acceptable-use.html">Acceptable use</a><a href="/license.html">MIT License</a></nav>

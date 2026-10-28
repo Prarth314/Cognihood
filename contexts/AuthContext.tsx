@@ -22,7 +22,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const LEGAL_DOCUMENT_VERSION = '2026-10-28';
+const LEGAL_DOCUMENT_VERSION = '2026-10-28.2';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
