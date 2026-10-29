@@ -42,13 +42,13 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
 
       {eligibility && (
         <p className="ui-caption mono">
-          {eligibility.durationInStateSec.toFixed(0)}s in state · {eligibility.confidence}% confidence
+          {eligibility.durationInStateSec.toFixed(0)}s in state · {eligibility.confidence}/100 signal-quality estimate
         </p>
       )}
 
       {eligibility && !eligibility.canDrive && (
         <div className="p-3 rounded-lg bg-[var(--error-muted)] border border-[var(--error)]/20" role="alert">
-          <p className="text-sm font-medium text-[var(--error)]">Strong risk signal detected. Safely stop and reassess.</p>
+          <p className="text-sm font-medium text-[var(--error)]">{state === EligibilityState.MONITORING ? 'Camera evidence is insufficient. Adjust the camera while parked.' : 'Elevated prototype signal. Safely stop and reassess.'}</p>
         </div>
       )}
 
@@ -56,7 +56,7 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border)]">
           {[
             { label: 'PERCLOS 30s', value: `${temporal.perclos30.toFixed(1)}%`, warn: temporal.perclos30 >= 15 },
-            { label: 'Low-engagement index', value: temporal.highwayHypnosisIndex, warn: temporal.highwayHypnosisIndex >= 50 },
+            { label: 'Head stillness (experimental)', value: temporal.gazeStagnation.toFixed(0), warn: false },
             { label: 'Gaze stagnation', value: `${temporal.gazeStagnation.toFixed(0)}%`, warn: false },
             { label: 'Monotony', value: `${temporal.monotonyDurationSec.toFixed(0)}s`, warn: false },
           ].map(item => (

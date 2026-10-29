@@ -1,4 +1,17 @@
 /* Product-wide semantic foundations. Existing monitoring controls consume these tokens. */
+/* Editorial continuity across authentication, observation and session archives. */
+.auth-site .auth-layout { max-width: 1160px; margin-inline: auto; }
+.auth-form-region { padding: clamp(20px, 3vw, 42px); border: 1px solid var(--public-line); border-radius: 26px; background: #ffffffb8; box-shadow: 0 20px 70px #173e3308; }
+.auth-story h1 em { color: var(--public-accent); font-weight: 400; }
+.workspace-editorial-hero em { color: var(--primary); font-weight: 400; }
+.auth-site .auth-panel { border: 0; background: transparent; box-shadow: none; }
+.workspace-editorial-hero { padding: clamp(24px, 4vw, 48px); background: var(--bg-muted); border: 1px solid var(--border); border-radius: 24px; }
+.workspace-editorial-hero h1 { font-family: Georgia, serif; font-size: clamp(30px, 4vw, 52px); font-weight: 400; line-height: 1.08; letter-spacing: -.025em; margin: 16px 0; }
+.workspace-editorial-hero > p:last-child { color: var(--text-secondary); max-width: 64ch; line-height: 1.7; font-size: 14px; }
+.workspace-view-records table th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.workspace-view-records table td { padding-block: 22px; }
+.workspace-view-dashboard .ui-card, .workspace-view-records .ui-card { border-radius: 20px; }
+@media (max-width: 600px) { .auth-form-region { padding: 20px; } .workspace-editorial-hero { padding: 24px; } }
 :root {
   --font-sans: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
   --font-editorial: Georgia, "Times New Roman", serif;

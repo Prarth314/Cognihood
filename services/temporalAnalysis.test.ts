@@ -23,7 +23,7 @@ describe('computeTemporalAnalysis', () => {
       snapshot({ faceDetected: false, eyesClosed: true, ear: 0 }),
     ]);
     expect(result.perclos30).toBe(0);
-    expect(result.faceDetectionRate).toBe(50);
+    expect(result.faceDetectionRate).toBe(0);
     vi.useRealTimers();
   });
 

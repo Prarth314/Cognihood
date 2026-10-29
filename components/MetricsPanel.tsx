@@ -39,16 +39,17 @@ const MetricsPanel: React.FC<MetricsPanelProps> = ({ metrics, temporal }) => (
     <div className="flex items-center justify-between">
       <h3 className="ui-h3 flex items-center gap-2">
         <i className="fas fa-heart-pulse text-[var(--primary)]" aria-hidden="true" />
-        Bio telemetry
+        Facial signals
       </h3>
       <span className="ui-caption mono">Live</span>
     </div>
 
     <div className="flex flex-col gap-4">
+      {(!temporal || temporal.sampleCount < 15 || temporal.faceDetectionRate < 70) && <p className="ui-caption" role="status">Insufficient live signal quality. Displayed values are provisional, not a safety assessment.</p>}
       {temporal && temporal.sampleCount > 0 && (
         <>
           <MetricRow
-            label="PERCLOS (30s)"
+            label="Sustained closure proxy (30s)"
             value={temporal.perclos30.toFixed(1)}
             unit="%"
             percent={Math.min(100, temporal.perclos30 * 2)}
@@ -65,7 +66,7 @@ const MetricsPanel: React.FC<MetricsPanelProps> = ({ metrics, temporal }) => (
       <MetricRow label="Eye opening (EAR)" value={metrics.ear.toFixed(3)} percent={metrics.ear * 300} />
       <MetricRow label="Blink frequency" value={metrics.blinkRate.toFixed(1)} unit="/min" percent={Math.min(100, metrics.blinkRate * 4)} />
       <MetricRow label="Closure duration" value={metrics.closureDuration.toFixed(2)} unit="s" percent={Math.min(100, metrics.closureDuration * 40)} warnAt={60} />
-      <MetricRow label="Distraction" value={metrics.distractionLevel} unit="%" percent={metrics.distractionLevel} warnAt={50} />
+      <MetricRow label="Head-pose deviation (proxy)" value={metrics.distractionLevel.toFixed(1)} unit="/100" percent={metrics.distractionLevel} warnAt={50} />
     </div>
 
     <div className="pt-4 border-t border-[var(--border)] grid grid-cols-3 gap-2">

@@ -417,6 +417,11 @@ const App: React.FC = () => {
 
         {currentView === 'dashboard' && (
           <div className="flex flex-col gap-4 lg:gap-6 min-h-0">
+            <header className="workspace-editorial-hero">
+              <p className="eyebrow-new">Local observation · human judgment</p>
+              <h1>Understand the signals.<br /><em>Stay in control.</em></h1>
+              <p>Eye opening, closure and head movement, presented with context. The index is a prototype heuristic; it is not an accuracy percentage or driving clearance.</p>
+            </header>
             <PageHeader
               title="Live monitoring"
               description={rerouteMsg ?? `Trip ${tripSessionRef.current?.id ?? 'active'}`}

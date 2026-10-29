@@ -47,6 +47,7 @@ export interface LocalFaceSnapshot {
 }
 
 export interface TemporalAnalysis {
+  closureDurationSec?: number;
   perclos30: number;
   perclos60: number;
   blinkRatePerMin: number;

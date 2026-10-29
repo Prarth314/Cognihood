@@ -6,6 +6,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 // Produce crawlable public HTML from the same components used in the browser.
 // No account, environment secret, or Supabase session is involved.
 const server = await createServer({
+  optimizeDeps: { noDiscovery: true, entries: [], include: [] },
   server: { middlewareMode: true },
   appType: "custom",
 });

@@ -14,6 +14,22 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe('camera signal correctness and recovery', () => {
+  it('requires bilateral evidence rather than classifying a wink as both eyes closed', async () => {
+    const { bilateralClosure } = await import('./faceLandmarker');
+    expect(bilateralClosure(.05,.3,.9,0,.15,.15)).toBe(false);
+    expect(bilateralClosure(.3,.05,0,.9,.15,.15)).toBe(false);
+    expect(bilateralClosure(.1,.1,0,0,.15,.15)).toBe(true);
+    expect(bilateralClosure(.3,.3,.9,.9,.15,.15)).toBe(true);
+  });
+  it('keeps EAR invariant to translation, scaling and in-plane rotation in pixel space', async () => {
+    const { eyeAspectRatio } = await import('./faceLandmarker');
+    const eye = [{x:0,y:0},{x:1,y:.3},{x:2,y:.3},{x:3,y:0},{x:2,y:-.3},{x:1,y:-.3}];
+    for (const aspect of [1, 4/3, 16/9]) for (const scale of [.02, .1, .3]) for (const angle of [-.5, 0, .5]) {
+      const points = eye.map(p => ({ x: (.5 + scale * (p.x * Math.cos(angle) - p.y * Math.sin(angle))) / aspect, y: .5 + scale * (p.x * Math.sin(angle) + p.y * Math.cos(angle)) }));
+      expect(eyeAspectRatio(points, [0,1,2,3,4,5], aspect)).toBeCloseTo(.2);
+    }
+    expect(eyeAspectRatio(Array.from({length:6}, () => ({x:0,y:0})), [0,1,2,3,4,5])).toBeNaN();
+  });
   it('falls back to CPU when GPU initialization fails', async () => {
     mocks.create.mockRejectedValueOnce(new Error('No GPU'));
     const module = await import('./faceLandmarker');

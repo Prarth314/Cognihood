@@ -78,7 +78,7 @@ const AppShell: React.FC<AppShellProps> = ({
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell workspace-view-${currentView}`}>
       <div
         className={cn('sidebar-backdrop lg:hidden', sidebarOpen && 'visible')}
         onClick={closeSidebar}

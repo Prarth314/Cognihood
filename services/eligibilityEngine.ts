@@ -19,41 +19,13 @@ function deriveCandidateState(temporal: TemporalAnalysis, gemini?: SafetyAssessm
     return { state: EligibilityState.INELIGIBLE, reasons };
   }
 
-  // Experimental low-engagement indicator: stagnant gaze + monotony.
-  if (temporal.highwayHypnosisIndex >= 65 && temporal.monotonyDurationSec >= 15) {
-    reasons.push(`Low-engagement index ${temporal.highwayHypnosisIndex} with ${temporal.monotonyDurationSec.toFixed(0)}s limited movement`);
-    return { state: EligibilityState.INELIGIBLE, reasons };
-  }
-
-  if (temporal.highwayHypnosisIndex >= 55 || temporal.gazeStagnation >= 70) {
-    reasons.push(`Elevated low-engagement estimate (${temporal.highwayHypnosisIndex}, limited head movement ${temporal.gazeStagnation.toFixed(0)}%)`);
-    if (temporal.monotonyDurationSec >= 8) {
-      return { state: EligibilityState.INELIGIBLE, reasons };
-    }
-    return { state: EligibilityState.CAUTION, reasons };
-  }
-
   if (temporal.perclos30 >= 15) {
     reasons.push(`PERCLOS 30s at ${temporal.perclos30.toFixed(1)}% (caution threshold 15%)`);
     return { state: EligibilityState.CAUTION, reasons };
   }
 
-  if (gemini?.state === SafetyState.CRITICAL) {
-    reasons.push('Gemini safety assessment: CRITICAL');
-    return { state: EligibilityState.INELIGIBLE, reasons };
-  }
-
-  if (gemini?.state === SafetyState.WARNING || temporal.highwayHypnosisIndex >= 40) {
-    if (temporal.highwayHypnosisIndex >= 40) {
-      reasons.push(`Low-engagement indicator trending elevated (${temporal.highwayHypnosisIndex})`);
-    }
-    if (gemini?.state === SafetyState.WARNING) {
-      reasons.push('Gemini safety assessment: WARNING');
-    }
-    return { state: EligibilityState.MONITORING, reasons };
-  }
-
-  reasons.push('Temporal signals within safe range');
+  // Head stillness and a model's visual impression cannot establish impairment.
+  reasons.push('Observed closure is below the prototype alert thresholds; this is not driving clearance.');
   return { state: EligibilityState.ELIGIBLE, reasons };
 }
 

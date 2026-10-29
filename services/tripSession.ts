@@ -84,15 +84,6 @@ export class TripSession {
       this.addEvent('INELIGIBLE', 90, assessment.eligibility.primaryReason);
     }
 
-    if (temporal && temporal.highwayHypnosisIndex >= 55 && temporal.monotonyDurationSec >= 12 && now - this.lastHypnosisAt > 45_000) {
-      this.lastHypnosisAt = now;
-      this.hypnosisEvents++;
-      this.addEvent('HYPNOSIS', temporal.highwayHypnosisIndex, 'Experimental low-engagement pattern flagged', {
-        durationSec: temporal.monotonyDurationSec,
-        hhi: temporal.highwayHypnosisIndex,
-      });
-    }
-
     if (assessment.metrics.distractionLevel >= 65 && now - this.lastDistractionAt > 20_000) {
       this.lastDistractionAt = now;
       this.addEvent('DISTRACTION', assessment.metrics.distractionLevel, 'Sustained off-road gaze pattern');

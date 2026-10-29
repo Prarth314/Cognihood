@@ -22,36 +22,35 @@ export function createLocalSafetyAssessment(
     ? clamp(Math.max(Math.abs(yaw) - 12, Math.abs(pitch) - 15) * 3, 0, 100)
     : 70;
   const cognitiveLoad = clamp(
-    temporal.highwayHypnosisIndex * 0.55 + temporal.perclos30 * 1.2 + distractionLevel * 0.25,
+    temporal.perclos30 * 1.2 + distractionLevel * 0.25,
     0,
     100
   );
 
   const penalties =
     temporal.perclos30 * 1.15 +
-    temporal.highwayHypnosisIndex * 0.45 +
     distractionLevel * 0.25 +
     (temporal.faceDetectionRate < 50 ? 15 : 0);
   const score = clamp(100 - penalties, 0, 100);
 
   let state = SafetyState.SAFE;
-  if (temporal.perclos30 >= 25 || temporal.highwayHypnosisIndex >= 70 || score < 40) {
+  if (temporal.perclos30 >= 25 || score < 40) {
     state = SafetyState.CRITICAL;
   } else if (
     temporal.perclos30 >= 15 ||
-    temporal.highwayHypnosisIndex >= 50 ||
     distractionLevel >= 60 ||
     score < 70
   ) {
     state = SafetyState.WARNING;
   }
+  if (!faceDetected || temporal.faceDetectionRate < 70 || temporal.sampleCount < 15) state = SafetyState.WARNING;
 
   const metrics: DriverMetrics = {
     ear: snapshot?.ear ?? previous?.metrics.ear ?? 0.3,
     blinkRate: temporal.blinkRatePerMin,
-    closureDuration: snapshot?.eyesClosed ? 0.1 : 0,
+    closureDuration: temporal.closureDurationSec ?? 0,
     headPose: snapshot?.headPose ?? previous?.metrics.headPose ?? { pitch: 0, yaw: 0, roll: 0 },
-    stressLevel: previous?.metrics.stressLevel ?? 0,
+    stressLevel: 0,
     distractionLevel,
     cognitiveLoad,
   };

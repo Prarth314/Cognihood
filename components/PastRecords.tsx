@@ -119,6 +119,11 @@ const PastRecords: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 min-h-0">
+      <header className="workspace-editorial-hero">
+        <p className="eyebrow-new">Your session library</p>
+        <h1>A little perspective.<br /><em>Every journey.</em></h1>
+        <p>Review your recorded signals, revisit session notes, and keep a private copy of your history. Scores are experimental indicators, not a measure of fitness to drive.</p>
+      </header>
       {error && (
         <div className="p-4 rounded-lg bg-[var(--error-muted)] border border-[var(--error)]/20 flex items-center justify-between gap-4" role="alert">
           <p className="text-sm text-[var(--error)]">{error}</p>
