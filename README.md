@@ -7,6 +7,8 @@
 CogniHood turns local camera signals into understandable, conservative attention indicators—without pretending to replace the driver, the vehicle, or professional judgment.
 
 [![CI](https://github.com/Prarth314/Cognihood/actions/workflows/ci.yml/badge.svg)](https://github.com/Prarth314/Cognihood/actions/workflows/ci.yml)
+[![Browser checks](https://github.com/Prarth314/Cognihood/actions/workflows/browser-checks.yml/badge.svg)](https://github.com/Prarth314/Cognihood/actions/workflows/browser-checks.yml)
+[![Backend integration](https://github.com/Prarth314/Cognihood/actions/workflows/backend-integration.yml/badge.svg)](https://github.com/Prarth314/Cognihood/actions/workflows/backend-integration.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F4C430?style=flat-square&logo=opensourceinitiative&logoColor=111111)](LICENSE)
 ![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
@@ -88,9 +90,10 @@ flowchart TB
     Camera -. per-session consent .-> Edge[Authenticated Supabase Edge Function]
     Edge --> Gemini[Google Gemini]
     Gemini --> Validate[Bounded output validation]
-    Validate --> State
+    Validate --> Commentary[Optional commentary]
 
     State --> UI[Visual + spoken guidance]
+    Commentary --> UI
     State --> Session[In-memory session aggregator]
     Session --> RPC[Authenticated record_trip RPC]
     RPC --> DB[(Supabase Postgres + RLS)]
@@ -137,7 +140,7 @@ The local pipeline runs continuously while monitoring is active. Optional cloud 
 ```bash
 git clone https://github.com/Prarth314/Cognihood.git
 cd Cognihood
-npm install
+npm ci
 ```
 
 ### 2. Configure browser variables
@@ -162,6 +165,10 @@ Apply the SQL migrations in numeric order:
 supabase/migrations/001_initial_schema.sql
 supabase/migrations/002_security_hardening.sql
 supabase/migrations/003_commercial_integrity.sql
+supabase/migrations/004_rpc_privileges.sql
+supabase/migrations/005_rls_initplans.sql
+supabase/migrations/006_cloud_consent_receipts.sql
+supabase/migrations/007_storage_and_write_budgets.sql
 ```
 
 Then configure Supabase Auth:
@@ -187,7 +194,7 @@ Open [http://localhost:3000](http://localhost:3000), confirm an email account, s
 npm run check
 ```
 
-That command runs type checking, all tests, a production build, and the production dependency audit.
+That command runs type checking, unit tests, a production build, and the full dependency audit. Browser and disposable backend checks run separately in GitHub Actions. See [implementation and deployment status](docs/SOFTWARE_COMPLETION.md) for what has actually been verified.
 
 ## ☁️ Deployment
 
@@ -250,6 +257,10 @@ For the Raspberry Pi 5 kiosk, local GPIO alert bridge, and systemd/autostart set
 | `ai_rate_limits` | Per-user Gemini request limits |
 | `ai_global_rate_limits` | Global AI budget circuit breaker |
 | `record_trip` | Authenticated, validated session insertion |
+| `trip_limits_policy` | Private, configurable write/storage safeguards |
+| `trip_write_budgets` / `trip_storage_usage` / `trip_global_usage` | Atomic daily allowance and estimated payload accounting |
+
+Migration 007 starts with provisional engineering limits: 120 sessions / 16 MiB per rolling day per account, 1,000 stored sessions / 100 MiB per account, and 400 MiB estimated global trip payload. These are configurable safeguards, not commercial plan entitlements or measurements of physical database usage. Failed inserts and idempotent retries do not spend an extra allowance. Users can export or delete individual sessions from a trip report. No automatic retention deletion is enabled.
 
 ## 🔐 Security & privacy
 
@@ -287,10 +298,13 @@ Read the [commercial-readiness notes](docs/COMMERCIAL_READINESS.md) before opera
 | `npm run typecheck` | Validate TypeScript without emitting files |
 | `npm test` | Run deterministic unit tests |
 | `npm run build` | Produce and validate the deployment bundle |
-| `npm run security:audit` | Check production dependencies for known advisories |
-| `npm run check` | Run every required verification step |
+| `npm run security:audit` | Check all installed dependencies for known advisories |
+| `npm run check` | Run the local baseline verification steps |
+| `npm run build:test` + `npm run test:browser` | Run Chromium tests after `npx playwright install chromium` |
 
-GitHub Actions runs the same checks for pushes to `main` and pull requests.
+GitHub Actions runs these checks for pushes to `main` and pull requests. The backend workflow starts its own Docker Supabase stack with disposable accounts to verify RLS, concurrent quotas and account-deletion cascades. It also tests signed-in browser flows; it needs no production secrets and sends no emails. Its loopback backend is separate from production and staging.
+
+Browser tests use synthetic frames, not participant faces. They verify worker/WASM loading, CSP, keyboard access, responsive login, automated accessibility rules and account workflows. A passing test suite does not establish driving-safety accuracy. See the [facial validation protocol and offline evaluation tool](docs/FACIAL_ANALYSIS_VALIDATION.md) for the remaining study requirements.
 
 ## 🗂 Repository map
 
