@@ -24,6 +24,40 @@ In **Authentication → Email → Confirm signup** (called **Email Templates** i
 
 Keep email/password authentication and email confirmation enabled. Do not disable verification to fix a redirect problem. Custom SMTP must also be configured correctly for messages to arrive, and delivery and resend limits still apply.
 
+## Hosted configuration review: October 28, 2026
+
+- Corrected the saved Site URL from the alternate Vercel alias to `https://cognihood.vercel.app/`.
+- Added and verified the production home page and `/?auth=confirm` redirect, plus the matching `localhost:3000` and `127.0.0.1:3000` URLs. Existing deployment-alias redirects were retained.
+- Verified that new signups and email confirmation are enabled, email is the only enabled provider, and anonymous sign-ins are disabled.
+- Verified that the existing default confirmation email uses `{{ .ConfirmationURL }}`.
+- Custom SMTP was not configured at review time. The hosted dashboard requires custom SMTP before editing the confirmation email subject/body. The branded repository template has therefore **not yet been applied to the hosted project**.
+- Supabase's default SMTP only delivers to project-team addresses, with a restrictive email quota. Public signup delivery remains dependent on configuring an external mail provider.
+
+To finish SMTP setup, enter the verified sender email, sender name (`CogniHood`), SMTP host, provider-required port, username, and password directly in **Authentication → Emails → SMTP Settings**, then save. Keep the credentials out of Git and browser `VITE_*` variables. If the provider requires a custom sender domain, verify that domain and configure its required DNS records. For the domain-free Gmail development option, follow the instructions below. Only then apply the branded template above and run the real-inbox verification below.
+
+See [Supabase's SMTP restrictions and setup instructions](https://supabase.com/docs/guides/auth/auth-smtp).
+
+## Development email without a custom domain
+
+The website can continue using `https://cognihood.vercel.app/`. A custom website domain is not needed for the confirmation redirect.
+
+For small development tests, an eligible Gmail account can supply SMTP without buying a domain:
+
+| Supabase SMTP field | Value |
+| --- | --- |
+| Sender email address | The Gmail address you control and authenticate with |
+| Sender name | `CogniHood` |
+| Host | `smtp.gmail.com` |
+| Port | `587` (TLS/STARTTLS) |
+| Username | The complete Gmail address |
+| Password | A Google app password created for CogniHood |
+
+Enable Google 2-Step Verification and create an app password in your own Google account. App-password availability depends on account policy; some managed accounts, security-key-only configurations, and Advanced Protection accounts do not offer it. Enter the generated app password directly into Supabase. Do not use your normal Gmail password, post the app password in chat, or commit it to the repository. You do not need to enable POP or IMAP to send through SMTP.
+
+This option uses your Gmail address as the sender and remains subject to Google's sending and anti-abuse limits. Use a dedicated transactional provider and an appropriate verified sender domain when preparing for public commercial traffic. This is a documented option, not a statement that Gmail SMTP has already been configured or tested for this project.
+
+References: [Google app passwords](https://support.google.com/accounts/answer/185833), [Gmail SMTP settings](https://support.google.com/mail/answer/7104828).
+
 ## What the application does
 
 Signup and resend requests include the current website origin plus `/?auth=confirm` as `emailRedirectTo`. Supabase verifies the single-use email link and returns the result to that URL. Before analytics or the Supabase client initializes, the application reads the result and removes the confirmation tokens and error parameters from the address bar. It shows a confirmation notice, clears any existing local login session, and waits for an explicit email/password sign-in.
