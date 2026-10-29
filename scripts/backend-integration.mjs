@@ -27,7 +27,7 @@ try {
   const admin = createClient(api.href, settings.SERVICE_ROLE_KEY, authOptions);
   const anonymous = createClient(api.href, settings.ANON_KEY, authOptions);
   const users = [];
-  for (let index = 0; index < 2; index++) {
+  for (let index = 0; index < 3; index++) {
     const email = `fixture-${randomUUID()}@example.invalid`;
     const password = `Fixture-${randomUUID()}!`;
     const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -35,9 +35,9 @@ try {
     const client = createClient(api.href, settings.ANON_KEY, authOptions);
     const session = await client.auth.signInWithPassword({ email, password });
     assert.equal(session.error, null, 'Fixture password login');
-    users.push({ id: created.data.user.id, client, token: session.data.session.access_token });
+    users.push({ id: created.data.user.id, client, token: session.data.session.access_token, email, password });
   }
-  const [a, b] = users;
+  const [a, b, c] = users;
   const trip = (user, id = randomUUID()) => ({
     id, user_id: user.id, start_time: 1000, end_time: 61000, duration_ms: 60000,
     avg_score: 80, min_score: 80, max_score: 80, state: 'SAFE', cog_load: 'LOW',
@@ -52,6 +52,7 @@ try {
   assert.equal((await save(a, original)).error, null, 'Own trip saved');
   assert.equal((await save(a, original)).error, null, 'Idempotent retry saved');
   assert.equal((await save(b, trip(b))).error, null, 'Second account trip saved');
+  assert.equal((await save(c, trip(c))).error, null, 'UI fixture trip saved');
   assert((await save(b, trip(a))).error, 'Cross-account RPC rejected');
   assert.deepEqual((await b.client.from('trips').select('id').eq('user_id', a.id)).data, [], 'Cross-account read hidden');
   assert.deepEqual((await anonymous.from('trips').select('id')).data, [], 'Anonymous read hidden');
@@ -68,6 +69,32 @@ try {
   assert.equal((await admin.from('trips').select('id').eq('user_id', a.id)).data.length, 2);
   assert.equal((await admin.from('trip_limits_policy').update({ max_trips_per_day: 120 }).eq('singleton', true)).error, null);
   console.log('PASS: real PostgreSQL concurrent quota reservations do not overspend.');
+
+  const browserEnv = { ...process.env, VITE_SUPABASE_URL: api.origin, VITE_SUPABASE_ANON_KEY: settings.ANON_KEY,
+    COGNI_LOCAL_BACKEND_URL: api.origin, COGNI_E2E_EMAIL: c.email, COGNI_E2E_PASSWORD: c.password };
+  execFileSync('npm', ['run', 'build:test'], { env: browserEnv, stdio: 'pipe', timeout: 120_000 });
+  try {
+    execFileSync('npx', ['playwright', 'test', '--reporter=json'], { env: browserEnv, stdio: 'pipe', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 });
+  } catch (error) {
+    // Emit actionable test failures, stripping every fixture credential first.
+    try {
+      const report = JSON.parse(String(error.stdout));
+      const secrets = [settings.ANON_KEY, settings.SERVICE_ROLE_KEY, ...users.flatMap(user => [user.email, user.password, user.token])];
+      const walk = suites => { for (const suite of suites ?? []) {
+        walk(suite.suites);
+        for (const spec of suite.specs ?? []) for (const test of spec.tests ?? []) for (const result of test.results ?? []) for (const failure of result.errors ?? []) {
+          let message = `${spec.title}: ${failure.message}`;
+          for (const secret of secrets) message = message.replaceAll(secret, '[fixture credential redacted]');
+          console.error(message.slice(0, 10000));
+        }
+      } };
+      walk(report.suites);
+    } catch { /* Never fall back to dumping command output. */ }
+    throw new Error('Disposable browser regression failed');
+  }
+  assert.equal((await admin.from('trips').select('id').eq('user_id', c.id)).data.length, 0, 'UI deleted only its fixture session');
+  assert.equal((await admin.auth.admin.deleteUser(c.id)).error, null);
+  console.log('PASS: real browser login, camera consent gate, archive export/delete and sign-out.');
 
   const receipt = await a.client.rpc('record_cloud_consent', { p_policy_version: '2026-10-28.2' });
   assert.equal(receipt.error, null, 'Consent recorded');

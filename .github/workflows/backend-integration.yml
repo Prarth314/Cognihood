@@ -22,6 +22,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       # CLI startup/status can print local credentials. The runner script captures
       # them privately and emits only assertion names, never raw CLI output.
       - run: node scripts/backend-integration.mjs

@@ -5,7 +5,7 @@ export class MockProvider implements HardwareProvider {
   name = 'Mock Vehicle Simulator';
   private interval: ReturnType<typeof setInterval> | null = null;
   private callback: ((signals: VehicleSignals) => void) | null = null;
-  
+
   private state: VehicleSignals = {
     speedKph: 0,
     rpm: 800,
@@ -50,11 +50,11 @@ export class MockProvider implements HardwareProvider {
         } else {
           this.state.speedKph += (Math.random() - 0.5) * 2;
         }
-        
+
         this.state.rpm = 1500 + (this.state.speedKph * 20) + (Math.random() * 100);
         this.state.steeringAngle += (Math.random() - 0.5) * 5;
         this.state.timestamp = Date.now();
-        
+
         if (this.callback) {
           this.callback({ ...this.state });
         }

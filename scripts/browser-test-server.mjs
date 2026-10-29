@@ -5,10 +5,14 @@ import path from 'node:path';
 const root = path.resolve('dist');
 const config = JSON.parse(await readFile('vercel.json', 'utf8'));
 const headers = config.headers.find(item => item.source === '/(.*)').headers;
+// Permit only the disposable loopback backend in the integration fixture.
+const localBackend = process.env.COGNI_LOCAL_BACKEND_URL ? new URL(process.env.COGNI_LOCAL_BACKEND_URL) : null;
+if (localBackend && !['127.0.0.1','localhost','[::1]'].includes(localBackend.hostname)) throw new Error('Expected a loopback backend');
 const contentTypes = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.wasm':'application/wasm', '.png':'image/png', '.woff2':'font/woff2' };
 createServer(async (request, response) => {
   try {
-    for (const {key,value} of headers) response.setHeader(key,value);
+    for (const {key,value} of headers) response.setHeader(key, key === 'Content-Security-Policy' && localBackend
+      ? value.replace("connect-src 'self'", `connect-src 'self' ${localBackend.origin} ${localBackend.origin.replace(/^http/, 'ws')}`) : value);
     let name = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
     if (name === '/app' || name.startsWith('/app/')) { name='/app/index.html'; response.setHeader('Cache-Control','private, no-store'); }
     else if (['/','/mission','/how-it-works','/hardware','/login'].includes(name)) name = name === '/' ? '/index.html' : `${name}/index.html`;
