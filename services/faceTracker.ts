@@ -12,7 +12,9 @@ export async function createFaceTracker(): Promise<FaceTracker> {
     let worker: Worker | undefined;
     try {
       worker = new Worker(new URL('./faceWorker.ts', import.meta.url));
-      const tracker = new WorkerFaceTracker(worker, createImageBitmap);
+      // Browser bitmap creation requires the Window receiver; passing the native
+      // function as a class property gives it the tracker as `this` instead.
+      const tracker = new WorkerFaceTracker(worker, source => globalThis.createImageBitmap(source));
       await tracker.initialize();
       return tracker;
     } catch { worker?.terminate(); }
