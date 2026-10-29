@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TripRecord } from '../types';
 import { formatDuration, formatTripDate } from '../services/coachingService';
 import Modal from './ui/Modal';
@@ -9,9 +9,13 @@ import Badge from './ui/Badge';
 interface IncidentReviewModalProps {
   record: TripRecord;
   onClose: () => void;
+  onDelete?: () => Promise<void>;
+  onExport?: () => void;
 }
 
-const IncidentReviewModal: React.FC<IncidentReviewModalProps> = ({ record, onClose }) => {
+const IncidentReviewModal: React.FC<IncidentReviewModalProps> = ({ record, onClose, onDelete, onExport }) => {
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const isBad = record.avgScore < 85;
 
   return (
@@ -21,8 +25,19 @@ const IncidentReviewModal: React.FC<IncidentReviewModalProps> = ({ record, onClo
       title="Trip report"
       description={`#${record.id} · ${formatTripDate(record.startTime)} · ${formatDuration(record.durationMs)}`}
       size="xl"
-      footer={<Button variant="secondary" onClick={onClose}>Close report</Button>}
+      footer={<div className="flex flex-wrap gap-2">
+        {onExport && <Button variant="secondary" onClick={onExport}>Export this session</Button>}
+        {onDelete && <Button variant="danger" disabled={deleting} onClick={async () => {
+          if (!window.confirm('Permanently delete this session? Export it first if you want to keep a copy.')) return;
+          setDeleting(true); setDeleteError(null);
+          try { await onDelete(); }
+          catch (error) { setDeleteError(error instanceof Error ? error.message : 'Could not delete session. Please retry.'); }
+          finally { setDeleting(false); }
+        }}>{deleting ? 'Deleting…' : 'Delete session'}</Button>}
+        <Button variant="secondary" onClick={onClose}>Close report</Button>
+      </div>}
     >
+      {deleteError && <p role="alert" className="ui-field-error">{deleteError}</p>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-4">
           <Card>

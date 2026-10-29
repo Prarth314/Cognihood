@@ -25,11 +25,12 @@ try {
     '004_rpc_privileges',
     '005_rls_initplans',
     '006_cloud_consent_receipts',
+    '007_storage_and_write_budgets',
   ]) {
     await db.exec(await Deno.readTextFile(new URL(`../supabase/migrations/${name}.sql`, import.meta.url)));
   }
   // The additive repair migrations must also tolerate a repeated application.
-  for (const name of ['004_rpc_privileges', '005_rls_initplans', '006_cloud_consent_receipts']) {
+  for (const name of ['004_rpc_privileges', '005_rls_initplans', '006_cloud_consent_receipts', '007_storage_and_write_budgets']) {
     await db.exec(await Deno.readTextFile(new URL(`../supabase/migrations/${name}.sql`, import.meta.url)));
   }
   await db.exec(`insert into auth.users (id) values ('${userA}'), ('${userB}');`);
@@ -41,6 +42,7 @@ try {
     `select has_function_privilege('anon', 'public.handle_new_user()', 'execute') as allowed`,
   );
   assert(triggerPrivileges.rows[0].allowed === false, 'Anonymous trigger execution grant must be revoked.');
+  assert((await db.query<{allowed:boolean}>(`select has_function_privilege('authenticated','public.record_trip_without_budget(jsonb)','execute') as allowed`)).rows[0].allowed === false, 'Browser role must not bypass budgets.');
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userA}', false);`);
   const consent = await db.query<{ receipt: string }>(`select public.record_cloud_consent('2026-10-28.2') as receipt`);
   const receipt = consent.rows[0].receipt;
@@ -98,16 +100,37 @@ try {
       cloud_analysis_used: false,
     };
     await db.query('select public.record_trip($1::jsonb)', [JSON.stringify(trip)]);
+    await db.query('select public.record_trip($1::jsonb)', [JSON.stringify(trip)]);
     const rows = await db.query<{ user_id: string }>('select user_id from public.trips');
     assert(rows.rows.length === 1 && rows.rows[0].user_id === uid, 'RLS must expose only the caller’s trips.');
     await db.exec('reset role;');
+    const budget = await db.query<{ trip_count: number }>('select trip_count from public.trip_write_budgets where user_id=$1', [uid]);
+    assert(budget.rows[0].trip_count === 1, 'Retry must not consume another write allowance.');
+    await db.exec('update public.trip_limits_policy set max_trips_per_day=1;');
+    await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${uid}', false);`);
+    let limited = false;
+    try { await db.query('select public.record_trip($1::jsonb)', [JSON.stringify({ ...trip, id: `${trip.id}-extra` })]); }
+    catch (error) { limited = String(error).includes('write allowance'); }
+    assert(limited, 'Daily allowance must be enforced by the server.');
+    await db.exec('reset role; update public.trip_limits_policy set max_trips_per_day=120;');
   }
+  const stored = await db.query<{trip: Record<string, unknown>}>(`select to_jsonb(t) as trip from public.trips t where user_id=$1`, [userA]);
+  await db.exec('update public.trip_limits_policy set max_bytes_global=1;');
+  await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub', '${userA}', false);`);
+  let capacityBlocked = false;
+  try { await db.query('select public.record_trip($1::jsonb)', [JSON.stringify({...stored.rows[0].trip, id:'fixture-capacity-blocked'})]); }
+  catch(error) { capacityBlocked = String(error).includes('capacity'); }
+  assert(capacityBlocked, 'Global capacity must reject an insert atomically.');
+  await db.exec('reset role; update public.trip_limits_policy set max_bytes_global=419430400;');
+  assert((await db.query<{trip_count:number}>('select trip_count from public.trip_write_budgets where user_id=$1',[userA])).rows[0].trip_count === 1, 'Failed storage reservation must not spend write allowance.');
   await db.exec(
     `set role authenticated; select set_config('request.jwt.claim.sub', '${userA}', false); delete from public.trips;`,
   );
   const baseline = await db.query('select * from public.cognitive_fingerprints');
   assert(baseline.rows.length === 0, 'Delete trigger must still recompute the caller baseline after privilege repair.');
   await db.exec('reset role;');
+  const storage = await db.query<{ trip_count: number }>('select trip_count from public.trip_storage_usage where user_id=$1', [userA]);
+  assert(Number(storage.rows[0].trip_count) === 0, 'Deleting trips must release storage capacity.');
   const remaining = await db.query<{ user_id: string }>('select user_id from public.trips');
   assert(
     remaining.rows.length === 1 && remaining.rows[0].user_id === userB,
@@ -127,7 +150,7 @@ try {
     'Policy repair must cache auth.uid().',
   );
   console.log(
-    'PASS: 001–006 apply; repairs repeat; two synthetic users remain isolated; RPC grants, consent issuance/revocation and deletion trigger verified.',
+    'PASS: 001–007 apply; repairs repeat; two users isolated; RPC grants, consent, idempotent write budgets and storage release verified.',
   );
 } finally {
   await db.close();

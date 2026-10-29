@@ -15,3 +15,11 @@ A dashboard watchdog withdraws stale camera evidence when callbacks stop. Missin
 The available Supabase CLI login lists projects in a different account/organization and does not include CogniHood. Those projects were not modified. Docker is not installed in the local environment. Do not use unrelated accounts/projects as staging, extract browser login tokens, or claim a live deployment on the basis of local SQL tests.
 
 Further implementation and verification results are recorded below as completed.
+
+## Storage/write safeguards (migration 007)
+
+Migration 007 implements configurable, atomic write and storage budgets with private counters; it has not been deployed to production. Provisional defaults are 120 new sessions and 16 MiB of request accounting per rolling 24 hours, 1,000 stored sessions / 100 MiB estimated payload per account, a 1 MiB request bound and 400 MiB estimated global payload. They are engineering defaults for evaluation, not commercial plan entitlements. Owners can adjust `trip_limits_policy`; browser roles cannot edit or read private quota tables. Physical database, indexes, backups, profiles and consent storage require separate platform monitoring.
+
+Idempotent retries do not spend another allowance. Failed inserts roll back budget reservations; deleting sessions releases stored capacity but does not refund daily ingestion allowance. No automatic retention deletion was introduced. Existing data is not deleted even if it already exceeds a new cap. The original record RPC becomes a private helper and cannot bypass budgets from a browser role. SQL tests cover repeatable migration application, idempotent accounting, daily rejection and storage release; real PostgreSQL concurrency tests are a separate integration check.
+
+Session reports now provide individual export and user-confirmed deletion, giving users a way to free storage and to export a session when the bounded full-history export is too large. Full baseline recomputation remains bounded by the session count cap; this is not an incremental aggregation implementation.

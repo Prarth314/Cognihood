@@ -275,3 +275,13 @@ export function downloadCogniLogs(userId?: string): Promise<void> {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 }
+
+export function downloadSession(record: TripRecord): void {
+  if (!window.confirm('This session contains sensitive attention history. Store the exported file securely. Continue?')) return;
+  const { userId: _userId, ...session } = record;
+  const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), session }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = `cognihood_export_session_${Date.now()}.json`; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TripRecord, AggregateStats } from '../types';
-import { getTripsPage, getBaseline, downloadCogniLogs } from '../services/tripStore';
+import { getTripsPage, getBaseline, downloadCogniLogs, deleteTrip, downloadSession } from '../services/tripStore';
 import { computeAggregateStats } from '../services/baselineService';
 import { formatDuration, formatTripDate } from '../services/coachingService';
 import { useAuth } from '../contexts/AuthContext';
@@ -219,7 +219,9 @@ const PastRecords: React.FC = () => {
       </Card>
 
       {selectedRecord && (
-        <IncidentReviewModal record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+        <IncidentReviewModal record={selectedRecord} onClose={() => setSelectedRecord(null)}
+          onExport={() => downloadSession(selectedRecord)}
+          onDelete={async () => { await deleteTrip(selectedRecord.id); setSelectedRecord(null); await load(); }} />
       )}
     </div>
   );

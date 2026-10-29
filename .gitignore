@@ -41,3 +41,4 @@ cognihood_export_*.json
 *.har
 .mailmap
 public/mediapipe/
+supabase/.temp/
