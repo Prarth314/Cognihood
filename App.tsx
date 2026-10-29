@@ -37,6 +37,7 @@ import { saveTrip, getBaseline } from './services/tripStore';
 import { requestMotionPermission, startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
 import { createLocalSafetyAssessment } from './services/localSafetyService';
+import { appViewForPath } from './services/siteRoutes';
 
 const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
   [SafetyState.SAFE]: { text: 'var(--success)', border: 'var(--success)' },
@@ -46,10 +47,15 @@ const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
 
 const App: React.FC = () => {
   const { user, cogniId, signOut, deleteAccount, isPasswordRecovery } = useAuth();
-  const [currentView, setCurrentView] = useState<AppView>('landing');
+  const [currentView, setCurrentView] = useState<AppView>(() => appViewForPath(window.location.pathname));
   const [assessment, setAssessment] = useState<SafetyAssessment | null>(null);
   const [history, setHistory] = useState<SafetyAssessment[]>([]);
   const networkEvents = [];
+  useEffect(() => {
+    if (currentView === 'landing') { window.location.replace('/login'); return; }
+    const paths = { selector: '/app', records: '/app/records', predrive: '/app/predrive', dashboard: '/app/dashboard' };
+    window.history.replaceState(null, '', paths[currentView]);
+  }, [currentView]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [temporalAnalysis, setTemporalAnalysis] = useState<TemporalAnalysis | null>(null);

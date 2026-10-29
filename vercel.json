@@ -1,5 +1,14 @@
 {
+  "rewrites": [
+    { "source": "/mission", "destination": "/mission/index.html" },
+    { "source": "/how-it-works", "destination": "/how-it-works/index.html" },
+    { "source": "/hardware", "destination": "/hardware/index.html" },
+    { "source": "/login", "destination": "/login/index.html" },
+    { "source": "/app/:path*", "destination": "/app/index.html" }
+  ],
   "headers": [
+    { "source": "/app/:path*", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }, { "key": "Cache-Control", "value": "private, no-store" }] },
+    { "source": "/login", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] },
     {
       "source": "/(.*)",
       "headers": [
