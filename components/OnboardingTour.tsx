@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { readPreference, writePreference } from '../services/safeStorage';
 import Button from './ui/Button';
 import { AppView } from './layout/AppShell';
 
@@ -47,7 +48,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ currentView }) => {
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    if (localStorage.getItem(STORAGE_KEY) === 'true') return;
+    if (readPreference(STORAGE_KEY) === 'true') return;
     if (currentView === 'landing') return;
     setVisible(true);
     setStepIndex(0);
@@ -62,7 +63,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ currentView }) => {
   const isLast = stepIndex >= applicable.length - 1;
 
   const finish = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
+    writePreference(STORAGE_KEY, 'true');
     setVisible(false);
   };
 

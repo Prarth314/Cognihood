@@ -9,12 +9,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs && node scripts/verify-build.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "security:audit": "npm audit --omit=dev",
+    "security:audit": "npm audit",
     "check": "npm run typecheck && npm test && npm run build && npm run security:audit"
   },
   "dependencies": {

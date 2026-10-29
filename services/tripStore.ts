@@ -171,18 +171,38 @@ export async function saveTrip(trip: TripRecord): Promise<void> {
   if (error) throw new Error(`Failed to save trip: ${error.message}`);
 }
 
-export async function getAllTrips(userId?: string): Promise<TripRecord[]> {
+export async function getTripsPage(userId?: string, offset = 0, pageSize = 50): Promise<TripRecord[]> {
   const uid = requireUserId(userId);
+  if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new Error('Invalid trip page.');
+  }
   if (!isSupabaseConfigured()) return [];
 
   const { data, error } = await getSupabase()
     .from('trips')
     .select('*')
     .eq('user_id', uid)
-    .order('start_time', { ascending: false });
+    .order('start_time', { ascending: false })
+    .order('id', { ascending: false })
+    .range(offset, offset + pageSize - 1);
 
   if (error) throw new Error(`Failed to load trips: ${error.message}`);
   return (data as TripRow[]).map(rowToTrip);
+}
+
+/** Explicitly fail oversized exports instead of silently exporting the API's default first page. */
+export async function getAllTrips(userId?: string): Promise<TripRecord[]> {
+  const trips: TripRecord[] = [];
+  let bytes = 0;
+  while (true) {
+    const page = await getTripsPage(userId, trips.length);
+    bytes += new TextEncoder().encode(JSON.stringify(page)).byteLength;
+    if (trips.length + page.length > 10_000 || bytes > 20_000_000) {
+      throw new Error('Export exceeds the 10,000-session or 20 MB limit. Request an assisted export from support.');
+    }
+    trips.push(...page);
+    if (page.length < 50) return trips;
+  }
 }
 
 export async function getTrip(id: string): Promise<TripRecord | null> {

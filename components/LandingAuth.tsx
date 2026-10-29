@@ -105,7 +105,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6">
+      <div className="auth-loading flex flex-col items-center justify-center gap-4 p-6" role="status">
         <Skeleton width={48} height={48} className="rounded-xl" />
         <Skeleton width={200} height={16} />
         <p className="sr-only">Initializing CogniHood</p>
@@ -116,14 +116,15 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   if (isPasswordRecovery) return <PasswordRecoveryForm />;
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 sm:p-8">
+    <div className="auth-panel flex flex-col items-center justify-center p-4 sm:p-8">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-3">
+        <div className="auth-form-heading space-y-3">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--primary)] text-white text-xl font-bold shadow-md">
             C
           </div>
-          <h1 className="ui-display">CogniHood</h1>
-          <p className="ui-body">Real-time driver safety intelligence with cognitive monitoring and trip insights.</p>
+          <p className="eyebrow-new">Welcome to CogniHood</p>
+          <h2 className="ui-display">{isSignUp ? 'Make space for insight.' : 'Good to see you.'}</h2>
+          <p className="ui-body">{isSignUp ? 'Create your development account to explore the app.' : 'Sign in to your attention-support workspace.'}</p>
         </div>
 
         {!supabaseReady && (
@@ -210,7 +211,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   {isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
                 <div className="flex flex-col gap-2">
-                  <Button type="button" variant="ghost" onClick={() => {
+                  <Button type="button" variant="ghost" disabled={submitting} onClick={() => {
                     setIsSignUp(!isSignUp);
                     setLegalAccepted(false);
                   }}>

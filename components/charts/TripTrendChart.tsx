@@ -79,7 +79,7 @@ const TripTrendChart: React.FC<TripTrendChartProps> = ({ trips, maxBars = 12 }) 
                   fill={scoreColor(trip.avgScore)}
                   opacity={0.9}
                 >
-                  <title>{`${label}: ${trip.avgScore}% safety`}</title>
+                  <title>{`${label}: ${trip.avgScore.toFixed(1)}% safety`}</title>
                 </rect>
                 <text
                   x={x + barW / 2}
@@ -100,7 +100,7 @@ const TripTrendChart: React.FC<TripTrendChartProps> = ({ trips, maxBars = 12 }) 
         <div>
           <p className="ui-caption">Best</p>
           <p className="text-sm font-semibold text-[var(--success)]">
-            {Math.max(...recent.map(t => t.avgScore))}%
+            {Math.max(...recent.map(t => t.avgScore)).toFixed(1)}%
           </p>
         </div>
         <div>

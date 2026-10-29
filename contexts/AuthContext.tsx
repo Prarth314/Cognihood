@@ -5,6 +5,7 @@ import { getSupabase, isSupabaseConfigured, checkSupabaseConnection } from '../s
 import { getProfile } from '../services/tripStore';
 import { getSignupRedirectUrl, getPasswordRecoveryRedirectUrl, type AuthRedirectNotice } from '../services/authRedirect';
 import { MIN_PASSWORD_LENGTH } from '../services/passwordValidation';
+import { hasRecentPasswordSignIn } from '../supabase/functions/_shared/recentAuthentication';
 
 interface AuthContextValue {
   user: User | null;
@@ -217,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
     setIsPasswordRecovery(false);
     setRecoverySessionReady(false);
     setError(null);
-    window.history.replaceState(null, '', '/');
+    window.history.replaceState(null, '', '/login');
   };
 
   const updatePassword = async (password: string) => {
@@ -248,7 +249,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
 
   const deleteAccount = async () => {
     setError(null);
-    const { error: err } = await getSupabase().functions.invoke('delete-account', { body: {} });
+    if (!session || !user || !hasRecentPasswordSignIn(session.access_token, user.id)) {
+      const err = new Error('Sign out and sign in again, then retry account deletion within five minutes.');
+      setError(err.message);
+      throw err;
+    }
+    const { error: err } = await getSupabase().functions.invoke('delete-account', { body: { confirmation: 'DELETE' } });
     if (err) {
       setError(err.message);
       throw err;

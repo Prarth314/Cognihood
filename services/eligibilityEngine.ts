@@ -9,6 +9,9 @@ function deriveCandidateState(temporal: TemporalAnalysis, gemini?: SafetyAssessm
   reasons: string[];
 } {
   const reasons: string[] = [];
+  if (temporal.sampleCount < 15 || temporal.faceDetectionRate < 70) {
+    return { state: EligibilityState.MONITORING, reasons: ['Insufficient valid camera signals; no attention assessment is available.'] };
+  }
 
   // Sustained eye closure / drowsiness (PERCLOS-based)
   if (temporal.perclos30 >= 25) {
@@ -50,11 +53,6 @@ function deriveCandidateState(temporal: TemporalAnalysis, gemini?: SafetyAssessm
     return { state: EligibilityState.MONITORING, reasons };
   }
 
-  if (temporal.sampleCount < 15) {
-    reasons.push('Establishing temporal baseline…');
-    return { state: EligibilityState.MONITORING, reasons };
-  }
-
   reasons.push('Temporal signals within safe range');
   return { state: EligibilityState.ELIGIBLE, reasons };
 }
@@ -91,6 +89,13 @@ export class EligibilityEngine {
   evaluate(temporal: TemporalAnalysis, gemini?: SafetyAssessment): EligibilityAssessment {
     const { state: candidate, reasons } = deriveCandidateState(temporal, gemini);
     const now = Date.now();
+
+    if (temporal.sampleCount < 15 || temporal.faceDetectionRate < 70) {
+      this.currentState = EligibilityState.MONITORING;
+      this.stateEnteredAt = now;
+      this.pendingState = null;
+      return { state: this.currentState, confidence: 0, durationInStateSec: 0, primaryReason: reasons[0], signals: reasons, canDrive: false };
+    }
 
     if (candidate !== this.currentState) {
       if (this.pendingState !== candidate) {
