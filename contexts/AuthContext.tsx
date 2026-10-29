@@ -217,7 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
     setIsPasswordRecovery(false);
     setRecoverySessionReady(false);
     setError(null);
-    window.history.replaceState(null, '', '/');
+    window.history.replaceState(null, '', '/login');
   };
 
   const updatePassword = async (password: string) => {
