@@ -1,5 +1,7 @@
 # Product experience redesign
 
+The subsequent [October 28 security review](SECURITY_AUDIT_2026-10-28.md) adds code repairs and three prepared SQL migrations to this branch. Its deployment requirements supersede the original redesign-only rollout notes below; no production SQL, functions or Auth settings were changed by that review.
+
 ## Review environment
 
 - Branch: `codex/product-experience-redesign`

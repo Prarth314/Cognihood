@@ -8,12 +8,14 @@ import './product.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { consumeEmailConfirmationRedirect, isPasswordRecoveryUrl } from './services/authRedirect';
+import { readPreference } from './services/safeStorage';
+import { filterAnalyticsEvent } from './services/analyticsPrivacy';
 
 const passwordRecovery = isPasswordRecoveryUrl(new URL(window.location.href));
 const authRedirect = consumeEmailConfirmationRedirect(window);
-inject();
+inject({ beforeSend: filterAnalyticsEvent });
 
-const savedTheme = localStorage.getItem('cognihood-theme') || 'system';
+const savedTheme = readPreference('cognihood-theme') || 'system';
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 const isDark = savedTheme === 'dark' || (savedTheme === 'system' && prefersDark);
 document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

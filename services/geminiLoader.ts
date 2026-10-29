@@ -13,8 +13,10 @@ export async function analyzeDrivingEnvironmentLazy(
   base64Image: string,
   history: SafetyAssessment[],
   temporal?: TemporalAnalysis | null,
-  localSnapshot?: LocalFaceSnapshot | null
+  localSnapshot?: LocalFaceSnapshot | null,
+  signal?: AbortSignal,
+  consentReceipt?: string
 ) {
   const mod = await loadGemini();
-  return mod.analyzeDrivingEnvironment(base64Image, history, temporal, localSnapshot);
+  return mod.analyzeDrivingEnvironment(base64Image, history, temporal, localSnapshot, signal, consentReceipt);
 }

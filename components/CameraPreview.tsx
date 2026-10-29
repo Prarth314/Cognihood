@@ -32,6 +32,8 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   const lastLocalSampleRef = useRef(0);
   const onLocalSnapshotRef = useRef(onLocalSnapshot);
   onLocalSnapshotRef.current = onLocalSnapshot;
+  const onFrameRef = useRef(onFrame);
+  onFrameRef.current = onFrame;
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +89,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
 
   useEffect(() => {
     if (!isActive) return;
-    type WakeLockSentinel = { release: () => Promise<void> };
+    type WakeLockSentinel = { release: () => Promise<void>; addEventListener: (type: string, listener: () => void) => void };
     let wakeLock: WakeLockSentinel | null = null;
     let cancelled = false;
     const acquire = async () => {
@@ -96,7 +98,10 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       try {
         const lock = await wakeLockApi.request('screen');
         if (cancelled) await lock.release();
-        else wakeLock = lock;
+        else {
+          wakeLock = lock;
+          lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+        }
       } catch {
         // Monitoring still works while the page remains active; the display may sleep.
       }
@@ -118,7 +123,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
     const tick = (now: number) => {
       const video = videoRef.current;
       const mod = landmarkerRef.current;
-      if (video && mod && video.readyState >= 2 && now - lastLocalSampleRef.current >= LOCAL_SAMPLE_MS) {
+      if (!document.hidden && video && mod && video.readyState >= 2 && now - lastLocalSampleRef.current >= LOCAL_SAMPLE_MS) {
         lastLocalSampleRef.current = now;
         const snapshot = mod.detectFaceFromVideo(video, now);
         onLocalSnapshotRef.current(snapshot);
@@ -138,13 +143,13 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
         if (ctx) {
           ctx.drawImage(videoRef.current, 0, 0, 640, 480);
           const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5).split(',')[1];
-          onFrame(base64);
+          onFrameRef.current(base64);
         }
       }
     }, remoteAnalysisIntervalMs);
 
     return () => clearInterval(interval);
-  }, [isActive, onFrame, remoteAnalysisEnabled, remoteAnalysisIntervalMs]);
+  }, [isActive, remoteAnalysisEnabled, remoteAnalysisIntervalMs]);
 
   const trackingActive = landmarkerReady && landmarkerRef.current?.isFaceLandmarkerReady();
 

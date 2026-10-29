@@ -59,16 +59,21 @@ export async function initFaceLandmarker(): Promise<boolean> {
   initPromise = (async () => {
     try {
       const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
-      landmarker = await FaceLandmarker.createFromOptions(vision, {
+      const options = {
         baseOptions: {
           modelAssetPath: MODEL_URL,
-          delegate: 'GPU',
+          delegate: 'GPU' as const,
         },
         outputFaceBlendshapes: true,
         outputFacialTransformationMatrixes: true,
-        runningMode: 'VIDEO',
+        runningMode: 'VIDEO' as const,
         numFaces: 1,
-      });
+      };
+      try {
+        landmarker = await FaceLandmarker.createFromOptions(vision, options);
+      } catch {
+        landmarker = await FaceLandmarker.createFromOptions(vision, { ...options, baseOptions: { ...options.baseOptions, delegate: 'CPU' } });
+      }
       return true;
     } catch (err) {
       console.error('FaceLandmarker init failed', err);
@@ -76,7 +81,9 @@ export async function initFaceLandmarker(): Promise<boolean> {
     }
   })();
 
-  return initPromise;
+  const ready = await initPromise;
+  if (!ready) initPromise = null;
+  return ready;
 }
 
 export function isFaceLandmarkerReady(): boolean {
@@ -85,7 +92,7 @@ export function isFaceLandmarkerReady(): boolean {
 
 export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number): LocalFaceSnapshot {
   const base: LocalFaceSnapshot = {
-    timestamp: timestampMs,
+    timestamp: Date.now(),
     ear: lastEar,
     eyesClosed: lastEar < calibratedEarThreshold,
     blinkDetected: false,
@@ -97,7 +104,7 @@ export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number
 
   try {
     const result = landmarker.detectForVideo(video, timestampMs);
-    if (!result.faceLandmarks?.length) return base;
+    if (!result.faceLandmarks?.length) { wasClosed = false; return base; }
 
     const landmarks = result.faceLandmarks[0];
     const leftEar = eyeAspectRatio(landmarks, LEFT_EYE);
@@ -113,7 +120,7 @@ export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number
       calibratedEarThreshold = Math.max(0.14, Math.min(0.25, median * 0.6));
     }
     const eyesClosed = ear < calibratedEarThreshold || blinkScore > BLINK_BLEND_THRESHOLD;
-    const blinkDetected = (wasClosed && !eyesClosed) || (blinkScore > BLINK_BLEND_THRESHOLD && !wasClosed);
+    const blinkDetected = wasClosed && !eyesClosed;
     wasClosed = eyesClosed;
 
     let headPose = { pitch: 0, yaw: 0, roll: 0 };
@@ -123,7 +130,7 @@ export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number
     }
 
     return {
-      timestamp: timestampMs,
+      timestamp: Date.now(),
       ear,
       eyesClosed,
       blinkDetected,
