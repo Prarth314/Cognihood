@@ -18,3 +18,5 @@ migrated_prompt_history
 replace-theme.mjs
 tests/
 playwright.config.ts
+hardware/
+src/services/hardware/

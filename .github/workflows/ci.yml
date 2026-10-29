@@ -29,3 +29,5 @@ jobs:
         run: npm exec --yes --package=deno@2.5.6 -- deno run --node-modules-dir=none --allow-read --allow-env scripts/check-migrations.mts
       - run: npm run build
       - run: npm audit
+      - name: Audit isolated Pi dependencies without compiling native GPIO
+        run: npm ci --ignore-scripts --prefix hardware/raspberry-pi && npm audit --prefix hardware/raspberry-pi

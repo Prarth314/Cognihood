@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=CogniHood Kiosk
+Comment=Launch CogniHood in fullscreen kiosk mode
+Exec=/opt/cognihood/hardware/raspberry-pi/start_cognihood.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true

@@ -33,3 +33,11 @@ The first browser run caught a native `createImageBitmap` receiver error; the ca
 ## Disposable backend integration
 
 `Backend integration` provisions a Docker Supabase stack inside an isolated GitHub runner, applies migrations and creates two disposable, already-confirmed fixture accounts. It checks cross-account access, anonymous reads, private RPC/table privileges, idempotent writes and twelve simultaneous writes competing for one remaining allowance. It also checks Edge Function authentication, consent revocation, origin/body guards and fresh-auth account deletion with cascading data removal. The runner does not send confirmation emails or call Gemini. CLI credentials are captured privately and never uploaded as artifacts. Only loopback API URLs are accepted. The suite is committed for execution; its passing workflow result is required before claiming verification. It does not deploy production migrations/functions or configure staging.
+
+The complete disposable Supabase suite passed on commit `3d155c5` (GitHub run `40933517055`), including real PostgreSQL concurrency and both Edge Functions.
+
+## Raspberry Pi integration
+
+The collaborator's hardware branch is integrated with a loopback-only, same-origin, 1 KiB bounded GPIO alert endpoint. It plays a fixed three-pulse cue, enforces a five-second cooldown and returns output low on cleanup. Browser requests have a three-second timeout and are canceled when the component leaves; the build flag defaults off and requests require a loopback hostname. The bridge reproduces website security headers with appropriate HTTP-loopback adjustments and avoids logging request bodies.
+
+The optional simulation classes have provider cleanup, callback removal, cleared telemetry and idempotent timer setup. Vehicle braking, speed-control and autonomous-stop commands were removed. Mock telemetry does not automatically run or enter real session scores. Hardware HTTP/GPIO behavior is tested with mock outputs; Pi dependencies are audited without compiling native bindings on Windows. Actual Pi electrical compatibility, native compilation, camera/display behavior and performance still require a device. The Pi package is excluded from Vercel uploads.

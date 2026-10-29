@@ -1,0 +1,11 @@
+{
+  "name": "cognihood-raspberry-pi-gpio",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "node-libgpiod": "^0.6.0"
+  },
+  "overrides": {
+    "node-gyp": "^12.1.0"
+  }
+}
