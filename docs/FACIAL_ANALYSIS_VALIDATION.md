@@ -38,6 +38,8 @@ The suite has 60 passing tests at this revision. New synthetic signal/geometry c
 
 No representative real-face/video dataset was evaluated in this task. No population accuracy, expression robustness or 99% accuracy was measured. Synthetic geometry checks validate calculations, not landmark detection performance.
 
+The hosted login layout was visually inspected. Authenticated monitoring/archive layout changes passed the application build, but were not visually verified with a signed-in test account. The in-app browser could not reach the local preview during this session. No production customer session was used for testing.
+
 ## Required real-data evaluation
 
 Use consented, licensed, independently annotated videos with subject-disjoint development and held-out test sets. Specify the label first: eye closure, blink event or sustained closure; “safe driver” cannot be obtained from a face-only label. Pre-register thresholds before evaluating the held-out set.
