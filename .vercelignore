@@ -3,7 +3,12 @@ dist
 .git
 .github
 .cursor
-supabase
+supabase/*
+!supabase/functions/
+supabase/functions/*
+!supabase/functions/_shared/
+supabase/functions/_shared/*
+!supabase/functions/_shared/recentAuthentication.ts
 docs
 migrated_prompt_history
 *.mp4

@@ -9,7 +9,7 @@ const SyncStatus: React.FC = () => {
   const label = !supabaseReady
     ? 'Not configured'
     : supabaseConnected
-      ? 'Cloud synced'
+      ? 'Cloud connected'
       : 'Offline';
 
   return (

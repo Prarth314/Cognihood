@@ -3,16 +3,19 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { inject } from '@vercel/analytics';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import App from './App';
+import Website from './components/website/Website';
+import './product.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { consumeEmailConfirmationRedirect, isPasswordRecoveryUrl } from './services/authRedirect';
+import { readPreference } from './services/safeStorage';
+import { filterAnalyticsEvent } from './services/analyticsPrivacy';
 
 const passwordRecovery = isPasswordRecoveryUrl(new URL(window.location.href));
 const authRedirect = consumeEmailConfirmationRedirect(window);
-inject();
+inject({ beforeSend: filterAnalyticsEvent });
 
-const savedTheme = localStorage.getItem('cognihood-theme') || 'system';
+const savedTheme = readPreference('cognihood-theme') || 'system';
 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 const isDark = savedTheme === 'dark' || (savedTheme === 'system' && prefersDark);
 document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
@@ -28,7 +31,7 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider authRedirect={authRedirect} passwordRecovery={passwordRecovery}>
-        <App />
+        <Website />
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>

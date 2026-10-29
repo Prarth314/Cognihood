@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { readPreference, writePreference } from '../services/safeStorage';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -29,7 +30,7 @@ function applyTheme(resolved: 'light' | 'dark') {
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mode, setModeState] = useState<ThemeMode>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null;
+    const stored = readPreference(STORAGE_KEY) as ThemeMode | null;
     return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
   });
   const [resolved, setResolved] = useState<'light' | 'dark'>(() => resolveTheme(mode));
@@ -38,7 +39,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const next = resolveTheme(mode);
     setResolved(next);
     applyTheme(next);
-    localStorage.setItem(STORAGE_KEY, mode);
+    writePreference(STORAGE_KEY, mode);
   }, [mode]);
 
   useEffect(() => {

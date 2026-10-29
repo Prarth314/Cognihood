@@ -1,0 +1,30 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@electric-sql/pglite@0.5.13": "0.5.13"
+  },
+  "npm": {
+    "@electric-sql/pglite@0.5.13": {
+      "integrity": "sha512-4rZuxK1k07w6sSpJzjMri0B9+HuXuC7V9pxVB51pR0T9KPqXg6TD0mdaEwBA9rkcL4jdht4tGDf/wYzAiGhT7g=="
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@fortawesome/fontawesome-free@^7.3.1",
+        "npm:@mediapipe/tasks-vision@~0.10.35",
+        "npm:@supabase/supabase-js@^2.110.1",
+        "npm:@tailwindcss/postcss@^4.3.3",
+        "npm:@types/node@^22.14.0",
+        "npm:@vercel/analytics@^2.0.1",
+        "npm:@vitejs/plugin-react@5",
+        "npm:react-dom@^19.2.4",
+        "npm:react@^19.2.4",
+        "npm:tailwindcss@^4.3.3",
+        "npm:typescript@~5.8.2",
+        "npm:vite@^6.2.0",
+        "npm:vitest@^5.0.4"
+      ]
+    }
+  }
+}
