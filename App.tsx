@@ -237,7 +237,7 @@ const App: React.FC = () => {
         eligibility: elig,
       };
       setAssessment(updated);
-      tripSessionRef.current?.recordAssessment(updated, temporal);
+      if (snapshot.faceDetected && temporal.faceDetectionRate >= 70) tripSessionRef.current?.recordAssessment(updated, temporal);
     } else if (temporal.sampleCount > 0) {
       const localAssessment = createLocalSafetyAssessment(temporal, snapshot);
       const full = { ...localAssessment, eligibility: elig };
@@ -247,6 +247,17 @@ const App: React.FC = () => {
       setEligibility(elig);
     }
   }, [currentView, runTemporalPipeline]);
+
+  useEffect(() => {
+    if (currentView !== 'dashboard') return;
+    const watchdog = window.setInterval(() => {
+      if (pendingTripRef.current || Date.now() - (latestSnapshotRef.current?.timestamp ?? 0) < 1500) return;
+      // Explicitly withdraw stale camera evidence even when the worker/camera stops producing callbacks.
+      handleLocalSnapshot({ timestamp: Date.now(), faceDetected: false, eyesClosed: false, blinkDetected: false,
+        ear: 0, headPose: { pitch: 0, yaw: 0, roll: 0 } });
+    }, 500);
+    return () => window.clearInterval(watchdog);
+  }, [currentView, handleLocalSnapshot]);
 
   const handleFrame = useCallback(async (base64: string) => {
     if (analyzingRef.current || currentView !== 'dashboard' || !cloudConsentRef.current || pendingTripRef.current) return;

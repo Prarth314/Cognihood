@@ -40,3 +40,4 @@ gitleaks-report*.sarif
 cognihood_export_*.json
 *.har
 .mailmap
+public/mediapipe/

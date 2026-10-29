@@ -1,4 +1,5 @@
 import path from 'path';
+import { readFileSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { validatePublicEnvironment } from './scripts/public-env.mjs';
@@ -6,6 +7,9 @@ import { validatePublicEnvironment } from './scripts/public-env.mjs';
 export default defineConfig(({ mode }) => {
     validatePublicEnvironment({ ...loadEnv(mode, process.cwd(), 'VITE_'), ...process.env });
     return {
+      define: {
+        __COGNI_VISION_VERSION__: JSON.stringify(JSON.parse(readFileSync(path.resolve('node_modules/@mediapipe/tasks-vision/package.json'), 'utf8')).version),
+      },
       server: {
         port: 3000,
         host: '0.0.0.0',

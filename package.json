@@ -8,6 +8,8 @@
   },
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-vision-assets.mjs",
+    "prebuild": "node scripts/copy-vision-assets.mjs",
     "dev": "vite",
     "build": "vite build && node scripts/prerender.mjs && node scripts/verify-build.mjs",
     "preview": "vite preview",

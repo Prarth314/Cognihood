@@ -1,7 +1,7 @@
 import { FaceLandmarker, FilesetResolver, FaceLandmarkerResult } from '@mediapipe/tasks-vision';
 import { LocalFaceSnapshot } from '../types';
 
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
+const WASM_CDN = `/mediapipe/${__COGNI_VISION_VERSION__}/wasm`;
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
@@ -112,6 +112,14 @@ export function isFaceLandmarkerReady(): boolean {
 }
 
 export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number): LocalFaceSnapshot {
+  return detectFaceSource(video, timestampMs, video.videoWidth / video.videoHeight || 1, video.readyState >= 2);
+}
+
+export function detectFaceFromBitmap(bitmap: ImageBitmap, timestampMs: number): LocalFaceSnapshot {
+  return detectFaceSource(bitmap, timestampMs, bitmap.width / bitmap.height, true);
+}
+
+function detectFaceSource(source: HTMLVideoElement | ImageBitmap, timestampMs: number, aspect: number, ready: boolean): LocalFaceSnapshot {
   const base: LocalFaceSnapshot = {
     timestamp: Date.now(),
     ear: lastEar,
@@ -121,17 +129,16 @@ export function detectFaceFromVideo(video: HTMLVideoElement, timestampMs: number
     faceDetected: false,
   };
 
-  if (!landmarker || video.readyState < 2) return base;
+  if (!landmarker || !ready) return base;
 
   try {
-    const result = landmarker.detectForVideo(video, timestampMs);
+    const result = landmarker.detectForVideo(source, timestampMs);
     if (!result.faceLandmarks?.length) {
       wasClosed = false;
       return base;
     }
 
     const landmarks = result.faceLandmarks[0];
-    const aspect = video.videoWidth > 0 && video.videoHeight > 0 ? video.videoWidth / video.videoHeight : 1;
     const leftEar = eyeAspectRatio(landmarks, LEFT_EYE, aspect);
     const rightEar = eyeAspectRatio(landmarks, RIGHT_EYE, aspect);
     if (![leftEar, rightEar].every(Number.isFinite)) {

@@ -9,3 +9,4 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+declare const __COGNI_VISION_VERSION__: string;
