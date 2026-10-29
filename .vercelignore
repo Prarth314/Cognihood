@@ -16,3 +16,5 @@ migrated_prompt_history
 .env*
 !.env.example
 replace-theme.mjs
+tests/
+playwright.config.ts

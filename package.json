@@ -13,6 +13,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/prerender.mjs && node scripts/verify-build.mjs",
     "preview": "vite preview",
+    "build:test": "node scripts/copy-vision-assets.mjs && vite build --mode e2e && node scripts/prerender.mjs && node scripts/verify-build.mjs",
+    "test:browser": "playwright test",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -28,6 +30,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
