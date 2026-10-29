@@ -27,3 +27,9 @@ Session reports now provide individual export and user-confirmed deletion, givin
 ## Browser regression checks
 
 `Browser checks` runs pinned Playwright/Chromium in GitHub's isolated runner, using a synthetic test-only build. It checks responsive login overflow, keyboard focus, private-route redirection, production CSP and actual worker/WASM initialization on a non-face canvas stream. The harness is excluded from production builds/uploads. The test server reproduces the app security headers. Tracing/video recording is disabled; no production account or camera is used. Worker timing reported by this fixture is a CI observation, not a Pi/mobile performance benchmark. The workflow must pass before its behavior is treated as verified.
+
+The first browser run caught a native `createImageBitmap` receiver error; the capture wrapper was corrected. All three Chromium checks passed on commit `563303e`, including actual worker/WASM processing. This does not validate facial accuracy or target-device speed.
+
+## Disposable backend integration
+
+`Backend integration` provisions a Docker Supabase stack inside an isolated GitHub runner, applies migrations and creates two disposable, already-confirmed fixture accounts. It checks cross-account access, anonymous reads, private RPC/table privileges, idempotent writes and twelve simultaneous writes competing for one remaining allowance. It also checks Edge Function authentication, consent revocation, origin/body guards and fresh-auth account deletion with cascading data removal. The runner does not send confirmation emails or call Gemini. CLI credentials are captured privately and never uploaded as artifacts. Only loopback API URLs are accepted. The suite is committed for execution; its passing workflow result is required before claiming verification. It does not deploy production migrations/functions or configure staging.

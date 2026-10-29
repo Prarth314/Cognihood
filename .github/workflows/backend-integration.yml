@@ -1,0 +1,30 @@
+name: Backend integration
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-supabase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # CLI startup/status can print local credentials. The runner script captures
+      # them privately and emits only assertion names, never raw CLI output.
+      - run: node scripts/backend-integration.mjs
+      - name: Stop disposable stack
+        if: always()
+        run: npx --yes supabase@2.122.0 stop --no-backup > /dev/null 2>&1
