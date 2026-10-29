@@ -3,7 +3,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { inject } from '@vercel/analytics';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import App from './App';
+import Website from './components/website/Website';
+import './product.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { consumeEmailConfirmationRedirect, isPasswordRecoveryUrl } from './services/authRedirect';
@@ -28,7 +29,7 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider authRedirect={authRedirect} passwordRecovery={passwordRecovery}>
-        <App />
+        <Website />
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>

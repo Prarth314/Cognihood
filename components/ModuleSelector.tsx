@@ -9,12 +9,14 @@ interface ModuleSelectorProps {
 }
 
 const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, onViewArchives, onDeleteAccount }) => (
-  <div className="flex flex-col gap-8 max-w-3xl mx-auto w-full">
-    <div className="text-center space-y-2">
+  <div className="workspace-overview flex flex-col gap-8 max-w-5xl mx-auto w-full">
+    <div className="workspace-welcome space-y-2">
+      <p className="eyebrow-new">Your attention-support workspace</p>
       {cogniId && <p className="ui-caption mono text-[var(--primary)]">{cogniId}</p>}
-      <h1 className="ui-display">Welcome back</h1>
+      <h1 className="ui-display">A clearer view<br />of your next session.</h1>
       <p className="ui-body">Choose a module for attention-support monitoring. CogniHood does not determine fitness to drive.</p>
     </div>
+    <div className="workspace-session-note"><span className="status-dot" /><span><strong>Start while safely parked.</strong> Camera access stays off until you review the notice and give consent.</span></div>
 
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <button type="button" onClick={onStartTrip} className="text-left group">
@@ -22,7 +24,8 @@ const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, o
           <div className="w-10 h-10 rounded-lg bg-[var(--primary-muted)] text-[var(--primary)] flex items-center justify-center mb-4">
             <i className="fas fa-gauge-high" aria-hidden="true" />
           </div>
-          <h2 className="ui-h2 mb-2">Live monitoring</h2>
+          <p className="eyebrow-new">01 / Prepare & observe</p>
+          <h2 className="ui-h2 mb-2">Start a session</h2>
           <p className="ui-body">Camera-derived attention indicators and non-vehicle-control coaching.</p>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-[var(--primary)] mt-4 group-hover:gap-2 transition-all">
             Start pre-drive check <i className="fas fa-arrow-right text-xs" aria-hidden="true" />
@@ -35,7 +38,8 @@ const ModuleSelector: React.FC<ModuleSelectorProps> = ({ cogniId, onStartTrip, o
           <div className="w-10 h-10 rounded-lg bg-[var(--bg-muted)] text-[var(--secondary)] flex items-center justify-center mb-4">
             <i className="fas fa-chart-line" aria-hidden="true" />
           </div>
-          <h2 className="ui-h2 mb-2">Trip archives</h2>
+          <p className="eyebrow-new">02 / Review & reflect</p>
+          <h2 className="ui-h2 mb-2">Your trip archives</h2>
           <p className="ui-body">Review past sessions, coaching notes, and prototype reference comparisons.</p>
           <span className="inline-flex items-center gap-1 text-sm font-medium text-[var(--secondary)] mt-4 group-hover:gap-2 transition-all">
             View history <i className="fas fa-arrow-right text-xs" aria-hidden="true" />
