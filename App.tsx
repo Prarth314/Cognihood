@@ -45,7 +45,7 @@ const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
 };
 
 const App: React.FC = () => {
-  const { user, cogniId, signOut, deleteAccount } = useAuth();
+  const { user, cogniId, signOut, deleteAccount, isPasswordRecovery } = useAuth();
   const [currentView, setCurrentView] = useState<AppView>('landing');
   const [assessment, setAssessment] = useState<SafetyAssessment | null>(null);
   const [history, setHistory] = useState<SafetyAssessment[]>([]);
@@ -302,7 +302,7 @@ const App: React.FC = () => {
     </Button>
   );
 
-  if (currentView === 'landing') {
+  if (currentView === 'landing' || isPasswordRecovery) {
     return (
       <div className={accessibilityMode ? 'contrast-125 saturate-150' : ''}>
         <div className="fixed top-4 right-4 z-50">

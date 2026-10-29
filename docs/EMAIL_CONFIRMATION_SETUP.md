@@ -11,6 +11,7 @@ In [Authentication → URL Configuration](https://supabase.com/dashboard/project
 - Set **Site URL** to `https://cognihood.vercel.app/`.
 - Add the exact production **Redirect URL** `https://cognihood.vercel.app/?auth=confirm`.
 - Keep `https://cognihood.vercel.app/` allowed for existing links and password-reset redirects.
+- Add `https://cognihood.vercel.app/?auth=recovery` for password recovery. Add the matching local recovery URL when testing locally. If a newly requested URL is not allowlisted, Supabase can fall back to the saved Site URL; the app also recognizes legacy `type=recovery` fragments at `/`.
 - For local development, add `http://localhost:3000/?auth=confirm` and `http://localhost:3000/`. If using `127.0.0.1` or a different port, allow the matching origin and callback explicitly.
 - Add another production domain only after verifying ownership. Avoid broad production wildcard rules.
 
@@ -28,6 +29,7 @@ Keep email/password authentication and email confirmation enabled. Do not disabl
 
 - Corrected the saved Site URL from the alternate Vercel alias to `https://cognihood.vercel.app/`.
 - Added and verified the production home page and `/?auth=confirm` redirect, plus the matching `localhost:3000` and `127.0.0.1:3000` URLs. Existing deployment-alias redirects were retained.
+- Added and verified `/?auth=recovery` for production, `localhost:3000`, and `127.0.0.1:3000`. Confirmed the canonical Site URL and recovery allowlist persisted after a dashboard reload.
 - Verified that new signups and email confirmation are enabled, email is the only enabled provider, and anonymous sign-ins are disabled.
 - Verified that the existing default confirmation email uses `{{ .ConfirmationURL }}`.
 - Custom SMTP was not configured at review time. The hosted dashboard requires custom SMTP before editing the confirmation email subject/body. The branded repository template has therefore **not yet been applied to the hosted project**.
@@ -62,7 +64,13 @@ References: [Google app passwords](https://support.google.com/accounts/answer/18
 
 Signup and resend requests include the current website origin plus `/?auth=confirm` as `emailRedirectTo`. Supabase verifies the single-use email link and returns the result to that URL. Before analytics or the Supabase client initializes, the application reads the result and removes the confirmation tokens and error parameters from the address bar. It shows a confirmation notice, clears any existing local login session, and waits for an explicit email/password sign-in.
 
-Expired, used, failed, or incomplete links show a useful message with a resend option. Existing links that redirect to the home page with a standard signup token fragment are also recognized. Password-recovery callbacks are left to their separate flow; this change does not implement a missing password-update screen.
+Expired, used, failed, or incomplete confirmation links show a useful message with a resend option. Existing links that redirect to the home page with a standard signup token fragment are also recognized.
+
+Password-recovery links have a separate new-password screen. The Supabase client verifies and consumes the recovery session; a matching new password of at least 10 characters is required before `auth.updateUser` is called. Invalid or expired links leave saving disabled. After a successful update, the app ends the local recovery session and returns to password sign-in. The recovery URL marker survives a refresh but does not itself grant access; an authenticated Supabase session is still required for any password change. Normal refresh-token and sign-in behavior remains managed by Supabase.
+
+### Email delivery deferred
+
+Custom SMTP and the branded hosted email template remain deferred at the owner's request. The production redirect changes above are saved. Password-reset and signup-email delivery still depend on the configured provider; implementing their website screens does not remove Supabase's default sender restrictions. Do not save an incomplete SMTP form or commit mail credentials while setup is deferred.
 
 ## Verify after changing the dashboard
 

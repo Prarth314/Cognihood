@@ -7,12 +7,21 @@ export function getSignupRedirectUrl(origin: string): string {
   return new URL('/?auth=confirm', origin).href;
 }
 
+export function getPasswordRecoveryRedirectUrl(origin: string): string {
+  return new URL('/?auth=recovery', origin).href;
+}
+
+export function isPasswordRecoveryUrl(url: URL): boolean {
+  return new URLSearchParams(url.hash.slice(1)).get('type') === 'recovery'
+    || url.searchParams.get('auth') === 'recovery';
+}
+
 /** Inspect the provider callback without creating or storing a login session. */
 export function getEmailConfirmationNotice(url: URL): AuthRedirectNotice | null {
   const fragment = new URLSearchParams(url.hash.slice(1));
   const type = fragment.get('type');
   // Password recovery must continue through its own session flow.
-  if (type === 'recovery') return null;
+  if (isPasswordRecoveryUrl(url)) return null;
 
   const errorCode = fragment.get('error_code') ?? url.searchParams.get('error_code');
   if (errorCode || fragment.has('error') || url.searchParams.has('error')) {

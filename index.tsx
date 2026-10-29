@@ -6,8 +6,9 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { consumeEmailConfirmationRedirect } from './services/authRedirect';
+import { consumeEmailConfirmationRedirect, isPasswordRecoveryUrl } from './services/authRedirect';
 
+const passwordRecovery = isPasswordRecoveryUrl(new URL(window.location.href));
 const authRedirect = consumeEmailConfirmationRedirect(window);
 inject();
 
@@ -26,7 +27,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ThemeProvider>
-      <AuthProvider authRedirect={authRedirect}>
+      <AuthProvider authRedirect={authRedirect} passwordRecovery={passwordRecovery}>
         <App />
       </AuthProvider>
     </ThemeProvider>
