@@ -59,11 +59,10 @@
   --text-primary: #edf5ef;
   --text-inverse: #10251b;
   --secondary: #b1b8ff;
+  --success: #86efac;
+  --warning: #fcd34d;
   --error: #fca5a5;
 }
-[data-theme="dark"] .ui-badge-success { color: #86efac; }
-[data-theme="dark"] .ui-badge-warning { color: #fcd34d; }
-[data-theme="dark"] .ui-badge-error { color: #fecaca; }
 .ui-btn-danger { background: #b91c1c; color: #fff; }
 .public-site,
 .auth-site {

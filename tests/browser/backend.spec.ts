@@ -6,6 +6,11 @@ async function checkThemes(page: Page) {
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
     await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme);
+    // Attribute updates precede CSS color transitions. Audit settled colors.
+    await page.evaluate(async () => {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      await Promise.all(document.getAnimations().filter(animation => Number.isFinite(animation.effect?.getComputedTiming().endTime)).map(animation => animation.finished.catch(() => {})));
+    });
     expect((await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
   }
   await page.emulateMedia({ colorScheme: 'light' });
