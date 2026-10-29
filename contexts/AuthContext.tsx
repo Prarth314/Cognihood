@@ -3,7 +3,8 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured, checkSupabaseConnection } from '../services/supabaseClient';
 import { getProfile } from '../services/tripStore';
-import { getSignupRedirectUrl, type AuthRedirectNotice } from '../services/authRedirect';
+import { getSignupRedirectUrl, getPasswordRecoveryRedirectUrl, type AuthRedirectNotice } from '../services/authRedirect';
+import { MIN_PASSWORD_LENGTH } from '../services/passwordValidation';
 
 interface AuthContextValue {
   user: User | null;
@@ -15,6 +16,10 @@ interface AuthContextValue {
   supabaseConnected: boolean;
   error: string | null;
   authNotice: AuthRedirectNotice | null;
+  isPasswordRecovery: boolean;
+  recoverySessionReady: boolean;
+  updatePassword: (password: string) => Promise<void>;
+  exitPasswordRecovery: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
@@ -27,7 +32,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const LEGAL_DOCUMENT_VERSION = '2026-10-28.2';
 
-export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: AuthRedirectNotice | null }> = ({ children, authRedirect = null }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: AuthRedirectNotice | null; passwordRecovery?: boolean }> = ({ children, authRedirect = null, passwordRecovery = false }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [cogniId, setCogniId] = useState<string | null>(null);
@@ -35,6 +40,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
   const [loading, setLoading] = useState(true);
   const [supabaseConnected, setSupabaseConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authNotice, setAuthNotice] = useState<AuthRedirectNotice | null>(authRedirect);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(passwordRecovery);
+  const [recoverySessionReady, setRecoverySessionReady] = useState(false);
   const authRevision = React.useRef(0);
 
   const supabaseReady = isSupabaseConfigured();
@@ -81,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
 
     let active = true;
     let initializing = true;
+    let authEventSequence = 0;
 
     const initialize = async () => {
       try {
@@ -93,9 +102,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
         if (!active) return;
         const { data: { session: s }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
-        if (active) await onAuthenticated(s);
+        if (active) {
+          if (passwordRecovery) {
+            setRecoverySessionReady(Boolean(s));
+            if (!s) setError('This password-reset link is invalid or expired. Return to sign in and request a new reset email.');
+            // Preserve the recovery screen on refresh, but never retain tokens/errors.
+            window.history.replaceState(null, '', '/?auth=recovery');
+          }
+          await onAuthenticated(s);
+        }
       } catch {
-        if (active) setError('We could not initialize your session. Refresh the page and try signing in again.');
+        if (active) {
+          setError(passwordRecovery
+            ? 'This password-reset link could not be verified. Return to sign in and request a new reset email.'
+            : 'We could not initialize your session. Refresh the page and try signing in again.');
+          if (passwordRecovery) window.history.replaceState(null, '', '/?auth=recovery');
+        }
       } finally {
         initializing = false;
         if (active) setLoading(false);
@@ -103,9 +125,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
     };
     void initialize();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      const eventSequence = ++authEventSequence;
+      if (event === 'PASSWORD_RECOVERY' && active) {
+        setIsPasswordRecovery(true);
+        setRecoverySessionReady(Boolean(s));
+      }
+      if (event === 'SIGNED_OUT' && active) setRecoverySessionReady(false);
       if (initializing) return;
-      window.setTimeout(() => { if (active) void onAuthenticated(s); }, 0);
+      window.setTimeout(() => {
+        if (active && eventSequence === authEventSequence) void onAuthenticated(s);
+      }, 0);
     });
 
     return () => {
@@ -115,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
       window.removeEventListener('online', refreshConnection);
       window.removeEventListener('offline', markOffline);
     };
-  }, [supabaseReady, onAuthenticated, authRedirect]);
+  }, [supabaseReady, onAuthenticated, authRedirect, passwordRecovery]);
 
   const signInWithEmail = async (email: string, password: string) => {
     setError(null);
@@ -149,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
 
   const sendPasswordReset = async (email: string) => {
     setError(null);
-    const redirectTo = `${window.location.origin}/`;
+    const redirectTo = getPasswordRecoveryRedirectUrl(window.location.origin);
     const { error: err } = await getSupabase().auth.resetPasswordForEmail(email, { redirectTo });
     if (err) {
       setError(err.message);
@@ -171,7 +201,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
   };
 
   const signOut = async () => {
-    await getSupabase().auth.signOut();
+    const { error: err } = await getSupabase().auth.signOut();
+    if (err) throw err;
+  };
+
+  const exitPasswordRecovery = async () => {
+    const { error: err } = supabaseReady
+      ? await getSupabase().auth.signOut({ scope: 'local' })
+      : { error: null };
+    if (err) {
+      setError('Could not end the recovery session. Please try again.');
+      throw err;
+    }
+    await onAuthenticated(null);
+    setIsPasswordRecovery(false);
+    setRecoverySessionReady(false);
+    setError(null);
+    window.history.replaceState(null, '', '/');
+  };
+
+  const updatePassword = async (password: string) => {
+    setError(null);
+    if (!isPasswordRecovery || !recoverySessionReady || !session) {
+      const err = new Error('Open a valid password-reset link before choosing a new password.');
+      setError(err.message);
+      throw err;
+    }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      const err = new Error(`Use at least ${MIN_PASSWORD_LENGTH} characters for your new password.`);
+      setError(err.message);
+      throw err;
+    }
+    const { error: err } = await getSupabase().auth.updateUser({ password });
+    if (err) {
+      setError(err.message);
+      throw err;
+    }
+    try {
+      await exitPasswordRecovery();
+    } catch (signOutError) {
+      setError('Your password was updated, but the recovery session could not be closed. Select Return to sign in to try again.');
+      throw signOutError;
+    }
+    setAuthNotice({ kind: 'success', message: 'Your password has been updated. Sign in with your new password.' });
   };
 
   const deleteAccount = async () => {
@@ -195,7 +267,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode; authRedirect?: 
         supabaseReady,
         supabaseConnected,
         error,
-        authNotice: authRedirect,
+        authNotice,
+        isPasswordRecovery,
+        recoverySessionReady,
+        updatePassword,
+        exitPasswordRecovery,
         signInWithEmail,
         signUpWithEmail,
         sendPasswordReset,

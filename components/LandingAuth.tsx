@@ -5,6 +5,7 @@ import Input from './ui/Input';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
 import Skeleton from './ui/Skeleton';
+import PasswordRecoveryForm from './PasswordRecoveryForm';
 
 interface LandingAuthProps {
   onAuthenticated: () => void;
@@ -17,6 +18,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     supabaseConnected,
     error,
     authNotice,
+    isPasswordRecovery,
     cogniId,
     user,
     signInWithEmail,
@@ -35,8 +37,12 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(authNotice?.kind === 'error');
 
   React.useEffect(() => {
-    if (user) onAuthenticated();
-  }, [user, onAuthenticated]);
+    if (user && !isPasswordRecovery) onAuthenticated();
+  }, [user, isPasswordRecovery, onAuthenticated]);
+
+  React.useEffect(() => {
+    if (authNotice) setNotice(authNotice.message);
+  }, [authNotice]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,6 +112,8 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
       </div>
     );
   }
+
+  if (isPasswordRecovery) return <PasswordRecoveryForm />;
 
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center p-4 sm:p-8">

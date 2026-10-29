@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { consumeEmailConfirmationRedirect, getEmailConfirmationNotice, getSignupRedirectUrl } from './authRedirect';
+import { consumeEmailConfirmationRedirect, getEmailConfirmationNotice, getSignupRedirectUrl, getPasswordRecoveryRedirectUrl, isPasswordRecoveryUrl } from './authRedirect';
 
 // Deliberately invalid fixtures, never real credentials.
 const signupFragment = '#access_token=fixture&refresh_token=fixture&type=signup';
@@ -51,5 +51,24 @@ describe('email confirmation redirects', () => {
     } as unknown as Pick<Window, 'location' | 'history'>;
     expect(consumeEmailConfirmationRedirect(browser)).toBeNull();
     expect(replaceState).not.toHaveBeenCalled();
+  });
+});
+
+describe('password recovery redirects', () => {
+  it('uses a recovery-specific redirect on the same website', () => {
+    expect(getPasswordRecoveryRedirectUrl('https://cognihood.vercel.app')).toBe('https://cognihood.vercel.app/?auth=recovery');
+    expect(getPasswordRecoveryRedirectUrl('http://localhost:3000')).toBe('http://localhost:3000/?auth=recovery');
+  });
+
+  it('recognizes old callback fragments and the marker retained on refresh', () => {
+    expect(isPasswordRecoveryUrl(new URL('https://cognihood.vercel.app/#type=recovery&access_token=fixture'))).toBe(true);
+    expect(isPasswordRecoveryUrl(new URL('https://cognihood.vercel.app/?auth=recovery'))).toBe(true);
+    expect(isPasswordRecoveryUrl(new URL('https://cognihood.vercel.app/?auth=confirm'))).toBe(false);
+  });
+
+  it('does not mistake expired password-reset links for signup confirmations', () => {
+    const url = new URL('https://cognihood.vercel.app/?auth=recovery#error=access_denied&error_code=otp_expired');
+    expect(isPasswordRecoveryUrl(url)).toBe(true);
+    expect(getEmailConfirmationNotice(url)).toBeNull();
   });
 });
