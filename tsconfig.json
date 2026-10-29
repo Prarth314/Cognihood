@@ -27,5 +27,5 @@
     "noEmit": true
   },
   "include": ["**/*.ts", "**/*.tsx", "vite-env.d.ts"],
-  "exclude": ["supabase/functions/**", "node_modules", "dist"]
+  "exclude": ["supabase/functions/**", "node_modules", "dist", "private-evaluation"]
 }

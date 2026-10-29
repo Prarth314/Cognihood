@@ -48,6 +48,25 @@ Evaluate variation in eye geometry, age ranges (adult participants), skin tones,
 
 Report event precision/recall/F1, missed sustained closures, false alerts per hour, timing error, coverage/abstention rate, p50/p95 inference latency and subgroup results with confidence intervals. Report failures and abstentions, rather than dropping difficult faces. A claim of 99% overall accuracy could hide rare-event failures; a release target needs an explicit outcome and denominator.
 
-Google documents that [detectForVideo blocks its calling thread](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js). Main-thread inference and actual Pi/mobile throughput still need device profiling and, where supported, a worker-based implementation. No worker or performance benchmark is claimed here.
+Google documents that [detectForVideo blocks its calling thread](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js). The application now prefers a dedicated worker with one frame in flight, and Chromium CI has verified worker/WASM startup and processing under CSP. Main-thread compatibility fallback remains. Actual Pi/mobile throughput still needs device profiling; the synthetic CI timing is not a device benchmark.
 
 Keep consent, source licenses, participant privacy, retention and deletion rules with the evaluation protocol. Do not upload participant face frames to Gemini or any external service without specific consent.
+
+## Offline closure evaluation tool
+
+Store consented annotations locally in ignored `private-evaluation/`. Do not commit participant videos, identifiers, demographics or per-person predictions. The command consumes JSONL observations with a study-local, non-identifying session code:
+
+```json
+{"session":"study-local-01","timestampMs":0,"referenceClosed":false,"predictedClosed":false}
+{"session":"study-local-01","timestampMs":100,"referenceClosed":true,"predictedClosed":null}
+```
+
+`null` means unlabelled reference or an abstaining/unavailable prediction. Keep timestamp zero relative to each recording. Both fields must be present; do not omit difficult observations. Run locally with read access limited to the input directory:
+
+```bash
+npm exec --yes --package=deno@2.5.6 -- deno run --allow-read=private-evaluation scripts/evaluate-facial.mts private-evaluation/observations.jsonl
+```
+
+The JSON summary includes the confusion matrix, precision/recall/F1, specificity, conditional agreement, abstentions and sample coverage. Time coverage excludes gaps over 500 ms and unknown endpoints, and never joins different sessions. False-closure duration counts intervals whose endpoints both show false closure; it is not a false-alert event rate. Empty denominators produce `null`, not an invented success rate. Session codes are not included in the output.
+
+This tool evaluates supplied closure decisions; it does not run landmark detection, generate labels, determine driving safety, produce confidence intervals, or prove population performance. Frame observations are temporally correlated, so ordinary independent-sample confidence intervals would be misleading. Event matching, subject-disjoint study splits, consented subgroup evaluation and independent dataset review remain required before release claims. The included tests use synthetic observations only.

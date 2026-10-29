@@ -44,3 +44,4 @@ public/mediapipe/
 supabase/.temp/
 test-results/
 playwright-report/
+private-evaluation/

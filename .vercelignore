@@ -20,3 +20,4 @@ tests/
 playwright.config.ts
 hardware/
 src/services/hardware/
+private-evaluation/
