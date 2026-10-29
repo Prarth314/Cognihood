@@ -29,6 +29,8 @@
   --border: #dce3d9;
   --border-strong: #bacabe;
   --secondary: #526b8a;
+  --success: #15803d;
+  --warning: #b45309;
   --radius-lg: 18px;
   --radius-md: 9px;
   --shadow-sm: 0 2px 4px #172b2804;
@@ -56,7 +58,13 @@
   --primary-muted: #284b3b;
   --text-primary: #edf5ef;
   --text-inverse: #10251b;
+  --secondary: #b1b8ff;
+  --error: #fca5a5;
 }
+[data-theme="dark"] .ui-badge-success { color: #86efac; }
+[data-theme="dark"] .ui-badge-warning { color: #fcd34d; }
+[data-theme="dark"] .ui-badge-error { color: #fecaca; }
+.ui-btn-danger { background: #b91c1c; color: #fff; }
 .public-site,
 .auth-site {
   color: var(--public-ink);

@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import type { Page } from '@playwright/test';
+
+async function checkThemes(page: Page) {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme);
+    expect((await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
+  }
+  await page.emulateMedia({ colorScheme: 'light' });
+}
 
 test('confirmed account can sign in, review consent, export/delete a session and sign out', async ({ page }) => {
   test.skip(!process.env.COGNI_E2E_EMAIL, 'Disposable backend fixture is required');
@@ -20,14 +30,15 @@ test('confirmed account can sign in, review consent, export/delete a session and
   await expect(page.getByRole('button', { name: 'Enable camera check' })).toBeDisabled();
   await expect(page.getByText('Camera is off', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__cameraCalls)).toBe(0);
-  expect((await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
+  await checkThemes(page);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('button', { name: /Your trip archives/ }).click();
   await expect(page.getByRole('table', { name: 'Trip history' })).toBeVisible();
+  await checkThemes(page);
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   const report = page.getByRole('dialog', { name: 'Trip report' });
   await expect(report).toBeVisible();
-  expect((await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
+  await checkThemes(page);
   page.once('dialog', dialog => dialog.accept());
   const downloadEvent = page.waitForEvent('download');
   await report.getByRole('button', { name: 'Export this session' }).click();

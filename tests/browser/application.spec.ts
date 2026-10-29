@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-for (const route of ['/', '/mission', '/how-it-works', '/hardware', '/login']) {
-  test(`public accessibility: ${route}`, async ({ page }) => {
+import { legalLinks } from '../../services/siteRoutes';
+for (const colorScheme of ['light', 'dark'] as const) for (const route of ['/', '/mission', '/how-it-works', '/hardware', '/login', ...legalLinks.map(([, path]) => path)]) {
+  test(`public accessibility (${colorScheme}): ${route}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
     await page.goto(route);
     const result = await new AxeBuilder({ page }).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
     expect(result.violations).toEqual([]);
