@@ -37,3 +37,6 @@ migrated_prompt_history/
 *.pfx
 gitleaks-report*.json
 gitleaks-report*.sarif
+cognihood_export_*.json
+*.har
+.mailmap

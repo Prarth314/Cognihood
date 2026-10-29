@@ -60,17 +60,6 @@ export function evaluatePreDriveCheck(
     };
   }
 
-  if (temporal.highwayHypnosisIndex >= 40) {
-    return {
-      passed: false,
-      perclos: temporal.perclos30,
-      faceDetectionRate: temporal.faceDetectionRate,
-      eligibility: EligibilityState.CAUTION,
-      message: 'Low engagement detected. Take a moment to orient before starting.',
-      scanDurationSec,
-    };
-  }
-
   return {
     passed: true,
     perclos: temporal.perclos30,

@@ -37,6 +37,8 @@ import { saveTrip, getBaseline } from './services/tripStore';
 import { requestMotionPermission, startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
 import { createLocalSafetyAssessment } from './services/localSafetyService';
+import { appViewForPath } from './services/siteRoutes';
+import { recordCloudConsent, revokeCloudConsent } from './services/cloudConsent';
 
 const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
   [SafetyState.SAFE]: { text: 'var(--success)', border: 'var(--success)' },
@@ -45,11 +47,18 @@ const SAFETY_COLORS: Record<SafetyState, { text: string; border: string }> = {
 };
 
 const App: React.FC = () => {
-  const { user, cogniId, signOut, deleteAccount } = useAuth();
-  const [currentView, setCurrentView] = useState<AppView>('landing');
+  const { user, cogniId, signOut, deleteAccount, isPasswordRecovery } = useAuth();
+  const [currentView, setCurrentView] = useState<AppView>(() => appViewForPath(window.location.pathname));
+  const currentViewRef = useRef(currentView);
+  currentViewRef.current = currentView;
   const [assessment, setAssessment] = useState<SafetyAssessment | null>(null);
   const [history, setHistory] = useState<SafetyAssessment[]>([]);
   const networkEvents = [];
+  useEffect(() => {
+    if (currentView === 'landing') { window.location.replace('/login'); return; }
+    const paths = { selector: '/app', records: '/app/records', predrive: '/app/predrive', dashboard: '/app/dashboard' };
+    window.history.replaceState(null, '', paths[currentView]);
+  }, [currentView]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [accessibilityMode, setAccessibilityMode] = useState(false);
   const [temporalAnalysis, setTemporalAnalysis] = useState<TemporalAnalysis | null>(null);
@@ -64,6 +73,13 @@ const App: React.FC = () => {
   const metricsBufferRef = useRef(new MetricsBuffer());
   const eligibilityEngineRef = useRef(new EligibilityEngine());
   const tripSessionRef = useRef<TripSession | null>(null);
+  const pendingTripRef = useRef<TripRecord | null>(null);
+  const endingTripRef = useRef<Promise<boolean> | null>(null);
+  const analysisGenerationRef = useRef(0);
+  const remoteRequestRef = useRef<AbortController | null>(null);
+  const cloudConsentReceiptRef = useRef<string | null>(null);
+  const cloudConsentRef = useRef(remoteAnalysisEnabled);
+  cloudConsentRef.current = remoteAnalysisEnabled;
   const latestSnapshotRef = useRef<LocalFaceSnapshot | null>(null);
   const assessmentRef = useRef<SafetyAssessment | null>(null);
   const lastUiUpdateRef = useRef(0);
@@ -71,35 +87,52 @@ const App: React.FC = () => {
   const analyzingRef = useRef(false);
   const remoteEnabledAtStartRef = useRef(false);
   assessmentRef.current = assessment;
+  useEffect(() => {
+    if (!remoteAnalysisEnabled) remoteRequestRef.current?.abort();
+    return () => { analysisGenerationRef.current++; remoteRequestRef.current?.abort(); };
+  }, [remoteAnalysisEnabled]);
 
   const endTrip = useCallback(async () => {
     const session = tripSessionRef.current;
-    if (!session || !user) return true;
+    if ((!session && !pendingTripRef.current) || !user) return true;
+    if (endingTripRef.current) return endingTripRef.current;
 
     setTripSaveError(null);
-    try {
-      const baseline = await getBaseline(user.id);
-      const trip = session.finalize(baseline);
-      tripSessionRef.current = null;
-      if (!trip) {
-        setTripNotice('Short session discarded because it did not contain enough valid monitoring data.');
+    const save = async () => {
+      try {
+        const baseline = pendingTripRef.current ? null : await getBaseline(user.id);
+        const trip = pendingTripRef.current ?? session?.finalize(baseline);
+        if (!trip) {
+          tripSessionRef.current = null;
+          setTripNotice('Short session discarded because it did not contain enough valid monitoring data.');
+          return true;
+        }
+        pendingTripRef.current = trip;
+        await saveTrip(trip);
+        pendingTripRef.current = null;
+        tripSessionRef.current = null;
+        setCompletedTrip(trip);
         return true;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Failed to save trip to Supabase';
+        setTripSaveError(msg);
+        console.error(msg);
+        return false;
+      } finally {
+        endingTripRef.current = null;
       }
-      await saveTrip(trip);
-      setCompletedTrip(trip);
-      return true;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to save trip to Supabase';
-      setTripSaveError(msg);
-      console.error(msg);
-      return false;
-    }
+    };
+    const task = save();
+    endingTripRef.current = task;
+    return task;
   }, [user]);
 
   useEffect(() => {
     if (user || currentView === 'landing') return;
     stopMotionListener();
     tripSessionRef.current = null;
+    pendingTripRef.current = null;
+    analysisGenerationRef.current++;
     metricsBufferRef.current.clear();
     eligibilityEngineRef.current.reset();
     analyzingRef.current = false;
@@ -122,6 +155,13 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const leaveDashboard = useCallback(async () => {
+    analysisGenerationRef.current++;
+    remoteRequestRef.current?.abort();
+    cloudConsentRef.current = false;
+    setRemoteAnalysisEnabled(false);
+    const receipt = cloudConsentReceiptRef.current;
+    cloudConsentReceiptRef.current = null;
+    if (receipt) void revokeCloudConsent(receipt).catch(error => setRemoteAnalysisError(error.message));
     stopMotionListener();
     const saved = await endTrip();
     if (!saved) return false;
@@ -149,9 +189,10 @@ const App: React.FC = () => {
     }
 
     return () => {
+      analysisGenerationRef.current++;
       stopMotionListener();
     };
-  }, [currentView, user]);
+  }, [currentView, user?.id]);
 
   const runTemporalPipeline = useCallback((gemini?: SafetyAssessment | null) => {
     const snapshots = metricsBufferRef.current.getInWindow(60_000);
@@ -173,14 +214,13 @@ const App: React.FC = () => {
   }, []);
 
   const handleLocalSnapshot = useCallback((snapshot: LocalFaceSnapshot) => {
-    if (currentView !== 'dashboard') return;
+    if (currentView !== 'dashboard' || pendingTripRef.current) return;
     metricsBufferRef.current.add(snapshot);
     latestSnapshotRef.current = snapshot;
-    const { temporal, elig } = runTemporalPipeline();
-
     const now = Date.now();
     if (now - lastUiUpdateRef.current < 500) return;
     lastUiUpdateRef.current = now;
+    const { temporal, elig } = runTemporalPipeline();
 
     if (assessmentRef.current) {
       const localAssessment = createLocalSafetyAssessment(temporal, snapshot, assessmentRef.current);
@@ -206,16 +246,20 @@ const App: React.FC = () => {
       setTemporalAnalysis(temporal);
       setEligibility(elig);
     }
-  }, [currentView, runTemporalPipeline, remoteAnalysisEnabled, remoteAnalysisError]);
+  }, [currentView, runTemporalPipeline]);
 
   const handleFrame = useCallback(async (base64: string) => {
-    if (analyzingRef.current || currentView !== 'dashboard') return;
+    if (analyzingRef.current || currentView !== 'dashboard' || !cloudConsentRef.current || pendingTripRef.current) return;
+    const generation = analysisGenerationRef.current;
+    const controller = new AbortController();
+    remoteRequestRef.current = controller;
     analyzingRef.current = true;
     setIsAnalyzing(true);
     try {
       const snapshots = metricsBufferRef.current.getInWindow(60_000);
       const temporal = computeTemporalAnalysis(snapshots, assessmentRef.current?.metrics);
-      const result = await analyzeDrivingEnvironmentLazy(base64, history, temporal, latestSnapshotRef.current);
+      const result = await analyzeDrivingEnvironmentLazy(base64, history, temporal, latestSnapshotRef.current, controller.signal, cloudConsentReceiptRef.current ?? undefined);
+      if (controller.signal.aborted || generation !== analysisGenerationRef.current || !cloudConsentRef.current) return;
       const { temporal: updatedTemporal, elig } = runTemporalPipeline(result);
       const full = { ...result, temporal: updatedTemporal, eligibility: elig };
       setRemoteAnalysisError(null);
@@ -223,6 +267,7 @@ const App: React.FC = () => {
       setHistory(prev => [...prev.slice(-20), full]);
       tripSessionRef.current?.recordAssessment(full, updatedTemporal);
     } catch (err) {
+      if (controller.signal.aborted || generation !== analysisGenerationRef.current || !cloudConsentRef.current) return;
       const message = err instanceof Error ? err.message : 'Remote analysis unavailable';
       setRemoteAnalysisError(message);
       const snapshots = metricsBufferRef.current.getInWindow(60_000);
@@ -236,6 +281,7 @@ const App: React.FC = () => {
       setEligibility(elig);
       console.error('Remote frame analysis unavailable; local monitoring remains active.', err);
     } finally {
+      if (remoteRequestRef.current === controller) remoteRequestRef.current = null;
       analyzingRef.current = false;
       setIsAnalyzing(false);
     }
@@ -262,8 +308,8 @@ const App: React.FC = () => {
     try {
       await deleteAccount();
       setCurrentView('landing');
-    } catch {
-      setTripNotice('Account deletion could not be completed. Verify the delete-account Edge Function is deployed and try again.');
+    } catch (error) {
+      setTripNotice(error instanceof Error ? error.message : 'Account deletion could not be completed. Please try again.');
     }
   };
 
@@ -302,7 +348,7 @@ const App: React.FC = () => {
     </Button>
   );
 
-  if (currentView === 'landing') {
+  if (currentView === 'landing' || isPasswordRecovery) {
     return (
       <div className={accessibilityMode ? 'contrast-125 saturate-150' : ''}>
         <div className="fixed top-4 right-4 z-50">
@@ -323,7 +369,14 @@ const App: React.FC = () => {
         headerActions={
           <div className="flex items-center gap-2">
             {currentView === 'dashboard' && remoteAnalysisEnabled ? (
-              <Button variant="secondary" size="sm" onClick={() => setRemoteAnalysisEnabled(false)}>
+              <Button variant="secondary" size="sm" onClick={() => {
+                setRemoteAnalysisEnabled(false);
+                cloudConsentRef.current = false;
+                remoteRequestRef.current?.abort();
+                const receipt = cloudConsentReceiptRef.current;
+                cloudConsentReceiptRef.current = null;
+                if (receipt) void revokeCloudConsent(receipt).catch(error => setRemoteAnalysisError(error.message));
+              }}>
                 Disable cloud analysis
               </Button>
             ) : null}
@@ -347,6 +400,12 @@ const App: React.FC = () => {
               if (import.meta.env.VITE_ENABLE_EXPERIMENTAL_MOTION === 'true') {
                 await requestMotionPermission();
               }
+              const receipt = enabled ? await recordCloudConsent() : null;
+              if (currentViewRef.current !== 'predrive') {
+                if (receipt) void revokeCloudConsent(receipt).catch(() => {});
+                return;
+              }
+              cloudConsentReceiptRef.current = receipt;
               remoteEnabledAtStartRef.current = enabled;
               setRemoteAnalysisEnabled(enabled);
               setRemoteAnalysisError(null);
@@ -358,6 +417,11 @@ const App: React.FC = () => {
 
         {currentView === 'dashboard' && (
           <div className="flex flex-col gap-4 lg:gap-6 min-h-0">
+            <header className="workspace-editorial-hero">
+              <p className="eyebrow-new">Local observation · human judgment</p>
+              <h1>Understand the signals.<br /><em>Stay in control.</em></h1>
+              <p>Eye opening, closure and head movement, presented with context. The index is a prototype heuristic; it is not an accuracy percentage or driving clearance.</p>
+            </header>
             <PageHeader
               title="Live monitoring"
               description={rerouteMsg ?? `Trip ${tripSessionRef.current?.id ?? 'active'}`}

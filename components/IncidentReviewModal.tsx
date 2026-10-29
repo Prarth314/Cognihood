@@ -29,7 +29,7 @@ const IncidentReviewModal: React.FC<IncidentReviewModalProps> = ({ record, onClo
             <h4 className="ui-h3 mb-4">Trip metrics</h4>
             <dl className="space-y-2 text-sm">
               {[
-                ['Avg safety', record.avgScore],
+                ['Avg safety', record.avgScore.toFixed(1)],
                 ['PERCLOS', `${record.avgPerclos.toFixed(1)}%`],
                 ['Low-engagement index', record.avgHHI.toFixed(0)],
                 ['Harsh brakes', record.harshBrakes],

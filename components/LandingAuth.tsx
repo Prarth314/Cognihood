@@ -5,6 +5,7 @@ import Input from './ui/Input';
 import Card from './ui/Card';
 import Badge from './ui/Badge';
 import Skeleton from './ui/Skeleton';
+import PasswordRecoveryForm from './PasswordRecoveryForm';
 
 interface LandingAuthProps {
   onAuthenticated: () => void;
@@ -16,11 +17,14 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     supabaseReady,
     supabaseConnected,
     error,
+    authNotice,
+    isPasswordRecovery,
     cogniId,
     user,
     signInWithEmail,
     signUpWithEmail,
     sendPasswordReset,
+    resendConfirmation,
     clearError,
   } = useAuth();
 
@@ -29,11 +33,16 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(authNotice?.message ?? null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(authNotice?.kind === 'error');
 
   React.useEffect(() => {
-    if (user) onAuthenticated();
-  }, [user, onAuthenticated]);
+    if (user && !isPasswordRecovery) onAuthenticated();
+  }, [user, isPasswordRecovery, onAuthenticated]);
+
+  React.useEffect(() => {
+    if (authNotice) setNotice(authNotice.message);
+  }, [authNotice]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,12 +52,35 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
-        setNotice('Check your email to confirm the account before signing in.');
+        setIsSignUp(false);
+        setPassword('');
+        setAwaitingConfirmation(true);
+        setNotice('Check your email and select Confirm email. You will return to CogniHood to sign in with your email and password.');
       } else {
         await signInWithEmail(email, password);
       }
-    } catch {
+    } catch (err) {
+      if (err && typeof err === 'object' && 'code' in err && err.code === 'email_not_confirmed') {
+        setAwaitingConfirmation(true);
+      }
       // AuthContext exposes the sanitized provider error in the form alert.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setNotice('Enter your email address above to request a new confirmation link.');
+      return;
+    }
+    setSubmitting(true);
+    clearError();
+    try {
+      await resendConfirmation(email);
+      setNotice('If this address has an account awaiting confirmation, a new email has been sent. Open the latest link, then sign in here.');
+    } catch {
+      // AuthContext exposes provider rate-limit and delivery errors.
     } finally {
       setSubmitting(false);
     }
@@ -73,7 +105,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
 
   if (loading) {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center gap-4 p-6">
+      <div className="auth-loading flex flex-col items-center justify-center gap-4 p-6" role="status">
         <Skeleton width={48} height={48} className="rounded-xl" />
         <Skeleton width={200} height={16} />
         <p className="sr-only">Initializing CogniHood</p>
@@ -81,15 +113,18 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
     );
   }
 
+  if (isPasswordRecovery) return <PasswordRecoveryForm />;
+
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center p-4 sm:p-8">
+    <div className="auth-panel flex flex-col items-center justify-center p-4 sm:p-8">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-3">
+        <div className="auth-form-heading space-y-3">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--primary)] text-white text-xl font-bold shadow-md">
             C
           </div>
-          <h1 className="ui-display">CogniHood</h1>
-          <p className="ui-body">Real-time driver safety intelligence with cognitive monitoring and trip insights.</p>
+          <p className="eyebrow-new">Welcome to CogniHood</p>
+          <h2 className="ui-display">{isSignUp ? 'Make space for insight.' : 'Good to see you.'}</h2>
+          <p className="ui-body">{isSignUp ? 'Create your development account to explore the app.' : 'Sign in to your attention-support workspace.'}</p>
         </div>
 
         {!supabaseReady && (
@@ -106,7 +141,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
         <Card>
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="ui-h2">Sign in</h2>
+              <h2 className="ui-h2">{isSignUp ? 'Create account' : 'Sign in'}</h2>
               <Badge tone={supabaseConnected ? 'success' : supabaseReady ? 'error' : 'warning'}>
                 {supabaseReady ? (supabaseConnected ? 'Connected' : 'Offline') : 'Not configured'}
               </Badge>
@@ -176,7 +211,7 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   {isSignUp ? 'Create account' : 'Sign in'}
                 </Button>
                 <div className="flex flex-col gap-2">
-                  <Button type="button" variant="ghost" onClick={() => {
+                  <Button type="button" variant="ghost" disabled={submitting} onClick={() => {
                     setIsSignUp(!isSignUp);
                     setLegalAccepted(false);
                   }}>
@@ -185,6 +220,11 @@ const LandingAuth: React.FC<LandingAuthProps> = ({ onAuthenticated }) => {
                   {!isSignUp && (
                     <Button type="button" variant="ghost" onClick={handlePasswordReset} disabled={submitting}>
                       Forgot password?
+                    </Button>
+                  )}
+                  {!isSignUp && awaitingConfirmation && (
+                    <Button type="button" variant="ghost" onClick={handleResendConfirmation} disabled={!supabaseReady || submitting}>
+                      Resend confirmation email
                     </Button>
                   )}
                 </div>

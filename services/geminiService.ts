@@ -7,6 +7,7 @@ import {
   TemporalAnalysis,
 } from '../types';
 import { getSupabase } from './supabaseClient';
+import { createLocalSafetyAssessment } from './localSafetyService';
 
 type RemoteAnalysis = {
   metrics: Omit<DriverMetrics, 'cognitiveLoad'>;
@@ -86,15 +87,20 @@ export async function analyzeDrivingEnvironment(
   base64Image: string,
   history: SafetyAssessment[],
   temporal?: TemporalAnalysis | null,
-  localSnapshot?: LocalFaceSnapshot | null
+  localSnapshot?: LocalFaceSnapshot | null,
+  signal?: AbortSignal,
+  consentReceipt?: string
 ): Promise<SafetyAssessment> {
   if (!base64Image || base64Image.length > MAX_IMAGE_BASE64_LENGTH) {
     throw new Error('Camera frame is empty or exceeds the secure upload limit.');
   }
+  if (!consentReceipt) throw new Error('Cloud processing requires a recorded consent receipt.');
 
   const { data, error } = await getSupabase().functions.invoke('gemini-assist', {
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(18_000)]) : AbortSignal.timeout(18_000),
     body: {
       action: 'analyze',
+      consentReceipt,
       imageBase64: base64Image,
       previousScore: history.at(-1)?.score ?? 100,
       temporal: temporal ? {
@@ -112,16 +118,11 @@ export async function analyzeDrivingEnvironment(
   let metrics: DriverMetrics = { ...result.metrics, cognitiveLoad: result.cognitiveLoad };
   metrics = mergeLocalIntoMetrics(metrics, localSnapshot ?? null, temporal);
 
-  const penalty =
-    metrics.distractionLevel * 0.55 +
-    metrics.cognitiveLoad * 0.15 +
-    (temporal?.perclos30 ?? 0) * 0.35 +
-    (temporal?.highwayHypnosisIndex ?? 0) * 0.2;
-  const score = clampNumber(100 - penalty, 0, 100, history.at(-1)?.score ?? 50);
-
-  let state = SafetyState.SAFE;
-  if (score < 40 || (temporal?.perclos30 ?? 0) >= 25) state = SafetyState.CRITICAL;
-  else if (score < 70 || (temporal?.highwayHypnosisIndex ?? 0) >= 55) state = SafetyState.WARNING;
+  // Generative visual impressions supply commentary, never calibrated safety values.
+  const local = temporal ? createLocalSafetyAssessment(temporal, localSnapshot ?? null) : null;
+  const score = local?.score ?? 0;
+  const state = local?.state ?? SafetyState.WARNING;
+  if (local) metrics = local.metrics;
 
   return {
     score,

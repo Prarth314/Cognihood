@@ -15,7 +15,7 @@ interface TripSummaryModalProps {
 
 const TripSummaryModal: React.FC<TripSummaryModalProps> = ({ trip, onClose, onViewArchives }) => {
   const wins = [
-    trip.avgScore >= 85 && `Safety index averaged ${trip.avgScore}%`,
+    trip.avgScore >= 85 && `Safety index averaged ${trip.avgScore.toFixed(1)}%`,
     trip.hypnosisEvents === 0 && 'No low-engagement pattern flags',
     trip.attentionFailures === 0 && 'All attention checks passed',
     trip.harshBrakes === 0 && 'No harsh braking detected',
@@ -37,7 +37,7 @@ const TripSummaryModal: React.FC<TripSummaryModalProps> = ({ trip, onClose, onVi
     >
       <div className="space-y-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MetricCard label="Safety" value={trip.avgScore} tone={trip.avgScore >= 85 ? 'success' : 'warning'} />
+          <MetricCard label="Safety" value={trip.avgScore.toFixed(1)} tone={trip.avgScore >= 85 ? 'success' : 'warning'} />
           <MetricCard label="Prototype ref." value={trip.nationalPercentile} tone="primary" />
           <MetricCard label="Incidents" value={trip.incidents} />
           <MetricCard label="Deviation" value={trip.fingerprintDeviation} tone={trip.recklessFlag ? 'error' : 'default'} />

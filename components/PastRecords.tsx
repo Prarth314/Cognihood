@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TripRecord, AggregateStats } from '../types';
-import { getAllTrips, getBaseline, downloadCogniLogs } from '../services/tripStore';
+import { getTripsPage, getBaseline, downloadCogniLogs } from '../services/tripStore';
 import { computeAggregateStats } from '../services/baselineService';
 import { formatDuration, formatTripDate } from '../services/coachingService';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,6 +23,10 @@ const PastRecords: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [importingLegacy, setImportingLegacy] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const requestVersion = useRef(0);
 
   const importLegacy = async () => {
     if (!user || importingLegacy) return;
@@ -35,7 +39,7 @@ const PastRecords: React.FC = () => {
         return;
       }
       const confirmed = window.confirm(
-        `This browser contains ${summary.trips} legacy trip(s)${summary.hasBaseline ? ' and a baseline' : ''}. Only continue if this data belongs to the currently signed-in account. After a successful import, the legacy browser copy will be deleted.`
+        `This browser contains ${summary.trips} legacy trip(s)${summary.hasBaseline ? ' and a baseline' : ''}. Only continue if this data belongs to the currently signed-in account. Only successfully imported trips will be removed from this browser. Baselines and skipped trips are retained.`
       );
       if (!confirmed) return;
       await migrateLegacyIndexedDbToSupabase(user.id, true);
@@ -49,22 +53,51 @@ const PastRecords: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!user) return;
+    const version = ++requestVersion.current;
     setLoading(true);
+    setLoadingMore(false);
     setError(null);
     try {
-      const all = await getAllTrips(user.id);
-      const baseline = await getBaseline(user.id);
+      const [all, baseline] = await Promise.all([getTripsPage(user.id), getBaseline(user.id)]);
+      if (version !== requestVersion.current) return;
       setTrips(all);
+      setHasMore(all.length === 50);
       setStats(computeAggregateStats(all, baseline));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load trips');
+      if (version === requestVersion.current) setError(e instanceof Error ? e.message : 'Failed to load trips');
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); return () => { requestVersion.current++; }; }, [load]);
   useTripsRealtime(user?.id, load);
+
+  const loadMore = async () => {
+    if (!user || loadingMore) return;
+    const version = requestVersion.current;
+    setLoadingMore(true);
+    try {
+      const [page, baseline] = await Promise.all([getTripsPage(user.id, trips.length), getBaseline(user.id)]);
+      if (version !== requestVersion.current) return;
+      const merged = [...new Map([...trips, ...page].map(trip => [trip.id, trip])).values()];
+      setTrips(merged);
+      setStats(computeAggregateStats(merged, baseline));
+      setHasMore(page.length === 50);
+    } catch (e) {
+      if (version === requestVersion.current) setError(e instanceof Error ? e.message : 'Failed to load more trips');
+    } finally {
+      if (version === requestVersion.current) setLoadingMore(false);
+    }
+  };
+
+  const exportHistory = async () => {
+    if (!user || exporting) return;
+    setExporting(true);
+    try { await downloadCogniLogs(user.id); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Export failed. Please retry.'); }
+    finally { setExporting(false); }
+  };
 
   if (!user) {
     return (
@@ -86,6 +119,11 @@ const PastRecords: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 min-h-0">
+      <header className="workspace-editorial-hero">
+        <p className="eyebrow-new">Your session library</p>
+        <h1>A little perspective.<br /><em>Every journey.</em></h1>
+        <p>Review your recorded signals, revisit session notes, and keep a private copy of your history. Scores are experimental indicators, not a measure of fitness to drive.</p>
+      </header>
       {error && (
         <div className="p-4 rounded-lg bg-[var(--error-muted)] border border-[var(--error)]/20 flex items-center justify-between gap-4" role="alert">
           <p className="text-sm text-[var(--error)]">{error}</p>
@@ -94,8 +132,8 @@ const PastRecords: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Total drive time" value={stats ? `${stats.totalDriveHours.toFixed(1)} hrs` : '0 hrs'} />
-        <MetricCard label="Global safety rating" value={stats ? `${stats.globalSafetyRating.toFixed(1)}%` : '—'} tone="success" />
+        <MetricCard label="Loaded drive time" value={stats ? `${stats.totalDriveHours.toFixed(1)} hrs` : '0 hrs'} />
+        <MetricCard label="Loaded session rating" value={stats ? `${stats.globalSafetyRating.toFixed(1)}%` : '—'} tone="success" />
         <MetricCard label="Fingerprint deviations" value={stats ? stats.fingerprintDeviations.toFixed(2) : '0.00'} tone="warning" />
         <MetricCard
           label="Prototype reference score (avg)"
@@ -141,7 +179,7 @@ const PastRecords: React.FC = () => {
                     </td>
                     <td className="px-4 py-4">
                       <span className={`font-semibold mono ${rec.avgScore >= 85 ? 'text-[var(--success)]' : rec.avgScore >= 70 ? 'text-[var(--warning)]' : 'text-[var(--error)]'}`}>
-                        {rec.avgScore}
+                        {rec.avgScore.toFixed(1)}
                       </span>
                     </td>
                     <td className="px-4 py-4 hidden lg:table-cell font-semibold text-[var(--primary)]">{rec.nationalPercentile}</td>
@@ -164,16 +202,17 @@ const PastRecords: React.FC = () => {
         )}
 
         <div className="p-4 border-t border-[var(--border)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <span className="ui-caption">{trips.length} trips · Cloud sync enabled</span>
+          <span className="ui-caption">{trips.length} loaded trips · Statistics describe loaded trips. Export retrieves all trips, up to 10,000 sessions / 20 MB.</span>
           <div className="flex gap-2">
+            {hasMore && <Button variant="secondary" size="sm" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</Button>}
             <Button variant="secondary" size="sm" onClick={load}>
               <i className="fas fa-rotate" aria-hidden="true" /> Refresh
             </Button>
             <Button variant="secondary" size="sm" onClick={importLegacy} disabled={importingLegacy}>
               <i className="fas fa-database" aria-hidden="true" /> {importingLegacy ? 'Importing…' : 'Import legacy data'}
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => downloadCogniLogs(user.id)}>
-              <i className="fas fa-file-export" aria-hidden="true" /> Export
+            <Button variant="secondary" size="sm" onClick={exportHistory} disabled={exporting}>
+              <i className="fas fa-file-export" aria-hidden="true" /> {exporting ? 'Exporting…' : 'Export'}
             </Button>
           </div>
         </div>

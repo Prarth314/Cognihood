@@ -27,10 +27,16 @@ export class TripSession {
   readonly cloudConsentAt: number | null;
   private events: TripEvent[] = [];
   private scoreTimeline: { t: number; score: number }[] = [];
-  private perclosSamples: number[] = [];
-  private hhiSamples: number[] = [];
-  private distractionSamples: number[] = [];
-  private cognitiveSamples: number[] = [];
+  private temporalCount = 0;
+  private assessmentCount = 0;
+  private perclosTotal = 0;
+  private hhiTotal = 0;
+  private distractionTotal = 0;
+  private cognitiveTotal = 0;
+  private scoreCount = 0;
+  private scoreTotal = 0;
+  private minimumScore = 100;
+  private maximumScore = 0;
   private lastIneligibleAt = 0;
   private lastHypnosisAt = 0;
   private lastDistractionAt = 0;
@@ -55,29 +61,27 @@ export class TripSession {
     if (now - this.lastScoreRecordAt >= 3000) {
       this.lastScoreRecordAt = now;
       const relT = now - this.startTime;
+      this.scoreCount++;
+      this.scoreTotal += assessment.score;
+      this.minimumScore = Math.min(this.minimumScore, assessment.score);
+      this.maximumScore = Math.max(this.maximumScore, assessment.score);
+      if (this.scoreTimeline.length >= 5000) this.scoreTimeline = this.scoreTimeline.filter((_, index) => index % 2 === 0);
       this.scoreTimeline.push({ t: relT, score: assessment.score });
     }
 
     if (temporal) {
-      this.perclosSamples.push(temporal.perclos30);
-      this.hhiSamples.push(temporal.highwayHypnosisIndex);
+      this.temporalCount++;
+      this.perclosTotal += temporal.perclos30;
+      this.hhiTotal += temporal.highwayHypnosisIndex;
     }
-    this.distractionSamples.push(assessment.metrics.distractionLevel);
-    this.cognitiveSamples.push(assessment.metrics.cognitiveLoad);
+    this.assessmentCount++;
+    this.distractionTotal += assessment.metrics.distractionLevel;
+    this.cognitiveTotal += assessment.metrics.cognitiveLoad;
 
     if (assessment.eligibility?.state === EligibilityState.INELIGIBLE && now - this.lastIneligibleAt > 30_000) {
       this.lastIneligibleAt = now;
       this.eligibilityFlags++;
       this.addEvent('INELIGIBLE', 90, assessment.eligibility.primaryReason);
-    }
-
-    if (temporal && temporal.highwayHypnosisIndex >= 55 && temporal.monotonyDurationSec >= 12 && now - this.lastHypnosisAt > 45_000) {
-      this.lastHypnosisAt = now;
-      this.hypnosisEvents++;
-      this.addEvent('HYPNOSIS', temporal.highwayHypnosisIndex, 'Experimental low-engagement pattern flagged', {
-        durationSec: temporal.monotonyDurationSec,
-        hhi: temporal.highwayHypnosisIndex,
-      });
     }
 
     if (assessment.metrics.distractionLevel >= 65 && now - this.lastDistractionAt > 20_000) {
@@ -111,15 +115,14 @@ export class TripSession {
   finalize(baseline: CognitiveFingerprint | null): TripRecord | null {
     const endTime = Date.now();
     const durationMs = endTime - this.startTime;
-    const scores = this.scoreTimeline.map(s => s.score);
-    if (durationMs < TripSession.MIN_DURATION_MS || scores.length < TripSession.MIN_SCORE_SAMPLES) {
+    if (durationMs < TripSession.MIN_DURATION_MS || this.scoreCount < TripSession.MIN_SCORE_SAMPLES) {
       return null;
     }
-    const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 100;
-    const avgPerclos = this.perclosSamples.length ? this.perclosSamples.reduce((a, b) => a + b, 0) / this.perclosSamples.length : 0;
-    const avgHHI = this.hhiSamples.length ? this.hhiSamples.reduce((a, b) => a + b, 0) / this.hhiSamples.length : 0;
-    const avgDistraction = this.distractionSamples.length ? this.distractionSamples.reduce((a, b) => a + b, 0) / this.distractionSamples.length : 0;
-    const avgCognitive = this.cognitiveSamples.length ? this.cognitiveSamples.reduce((a, b) => a + b, 0) / this.cognitiveSamples.length : 0;
+    const avgScore = this.scoreTotal / this.scoreCount;
+    const avgPerclos = this.temporalCount ? this.perclosTotal / this.temporalCount : 0;
+    const avgHHI = this.temporalCount ? this.hhiTotal / this.temporalCount : 0;
+    const avgDistraction = this.assessmentCount ? this.distractionTotal / this.assessmentCount : 0;
+    const avgCognitive = this.assessmentCount ? this.cognitiveTotal / this.assessmentCount : 0;
 
     const partial = {
       avgScore,
@@ -136,9 +139,9 @@ export class TripSession {
       startTime: this.startTime,
       endTime,
       durationMs,
-      avgScore: Math.round(avgScore),
-      minScore: scores.length ? Math.min(...scores) : 100,
-      maxScore: scores.length ? Math.max(...scores) : 100,
+      avgScore: Math.min(this.maximumScore, Math.max(this.minimumScore, avgScore)),
+      minScore: this.minimumScore,
+      maxScore: this.maximumScore,
       state: tripStateFromScore(avgScore),
       cogLoad: cogLoadFromScore(avgScore, avgCognitive),
       incidents: this.events.length,
@@ -186,6 +189,7 @@ export class TripSession {
     message: string,
     metadata?: Record<string, number>
   ): void {
+    if (this.events.length >= 500) return;
     this.events.push({
       id: crypto.randomUUID(),
       type,

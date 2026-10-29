@@ -19,6 +19,8 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
   const [check, setCheck] = useState<PreDriveCheckResult | null>(null);
   const [tick, setTick] = useState(0);
   const [remoteAnalysisConsent, setRemoteAnalysisConsent] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const bufferRef = React.useRef(new MetricsBuffer());
 
   const handleSnapshot = (snapshot: LocalFaceSnapshot) => {
@@ -173,8 +175,14 @@ const PreDriveGate: React.FC<PreDriveGateProps> = ({ onPassed, onCancel }) => {
                   </span>
                 </span>
               </label>
-              <Button className="w-full" size="lg" onClick={() => onPassed(remoteAnalysisConsent)}>
-                Begin {remoteAnalysisConsent ? 'enhanced' : 'local-only'} monitoring
+              {startError && <p role="alert" className="text-sm text-[var(--error)]">{startError}</p>}
+              <Button className="w-full" size="lg" disabled={starting} onClick={async () => {
+                setStarting(true); setStartError(null);
+                try { await onPassed(remoteAnalysisConsent); }
+                catch (error) { setStartError(error instanceof Error ? error.message : 'Could not start monitoring. Please retry.'); }
+                finally { setStarting(false); }
+              }}>
+                {starting ? 'Starting…' : `Begin ${remoteAnalysisConsent ? 'enhanced' : 'local-only'} monitoring`}
               </Button>
             </div>
           )}
