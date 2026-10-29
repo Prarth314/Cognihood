@@ -22,6 +22,33 @@ const assessment: SafetyAssessment = {
 afterEach(() => vi.useRealTimers());
 
 describe('TripSession', () => {
+  it('keeps fractional averages inside the stored min/max range', () => {
+    vi.useFakeTimers();
+    const session = new TripSession('00000000-0000-4000-8000-000000000000');
+    for (let i = 0; i < 3; i++) {
+      session.recordAssessment({ ...assessment, score: 90.4 }, null);
+      vi.advanceTimersByTime(15_000);
+    }
+    const trip = session.finalize(null)!;
+    expect(trip.avgScore).toBeGreaterThanOrEqual(trip.minScore);
+    expect(trip.avgScore).toBeLessThanOrEqual(trip.maxScore);
+    expect(trip.avgScore).toBeCloseTo(90.4);
+  });
+  it('bounds long-session charts/events without discarding lifetime score statistics', () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-28T12:00:00Z'));
+    const session = new TripSession('00000000-0000-4000-8000-000000000000');
+    for (let i = 0; i < 6000; i++) {
+      session.recordAssessment({ ...assessment, score: i % 2 ? 100 : 80 }, null);
+      vi.advanceTimersByTime(3100);
+    }
+    for (let i = 0; i < 510; i++) session.recordHarshBrake(1);
+    const trip = session.finalize(null);
+    expect(trip?.scoreTimeline.length).toBeLessThanOrEqual(5000);
+    expect(trip?.events.length).toBeLessThanOrEqual(500);
+    expect(trip?.avgScore).toBe(90);
+    expect(trip?.minScore).toBe(80);
+    expect(trip?.maxScore).toBe(100);
+  });
   it('discards sessions without minimum duration and samples', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-13T12:00:00Z'));

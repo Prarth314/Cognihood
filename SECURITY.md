@@ -18,6 +18,8 @@ Security reports are reviewed by the project maintainer. There is no guaranteed 
 
 ## Automated checks
 
+The October 28 findings and release requirements are in [the security and reliability audit](docs/SECURITY_AUDIT_2026-10-28.md). Run `npm run check` before release; dependency auditing includes development tooling. GitHub vulnerability alerts and automated security-fix PRs are enabled; weekly Dependabot update configuration is included.
+
 The **Secret scanning** GitHub Actions workflow runs on pushes, pull requests, manual requests, and a weekly schedule. It uses a pinned Gitleaks release verified against a fixed SHA-256 checksum and scans complete fetched Git history with secret values redacted. A detection fails the job. It does not upload a findings report or require a paid scanner account.
 
 For local checks with [Gitleaks](https://github.com/gitleaks/gitleaks):

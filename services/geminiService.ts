@@ -86,15 +86,20 @@ export async function analyzeDrivingEnvironment(
   base64Image: string,
   history: SafetyAssessment[],
   temporal?: TemporalAnalysis | null,
-  localSnapshot?: LocalFaceSnapshot | null
+  localSnapshot?: LocalFaceSnapshot | null,
+  signal?: AbortSignal,
+  consentReceipt?: string
 ): Promise<SafetyAssessment> {
   if (!base64Image || base64Image.length > MAX_IMAGE_BASE64_LENGTH) {
     throw new Error('Camera frame is empty or exceeds the secure upload limit.');
   }
+  if (!consentReceipt) throw new Error('Cloud processing requires a recorded consent receipt.');
 
   const { data, error } = await getSupabase().functions.invoke('gemini-assist', {
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(18_000)]) : AbortSignal.timeout(18_000),
     body: {
       action: 'analyze',
+      consentReceipt,
       imageBase64: base64Image,
       previousScore: history.at(-1)?.score ?? 100,
       temporal: temporal ? {

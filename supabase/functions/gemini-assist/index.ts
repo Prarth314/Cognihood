@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.110.1';
+import { readLimitedJson, RequestBodyError, boundedInteger } from '../_shared/requestSafety.ts';
 
 const MAX_BODY_BYTES = 2_000_000;
 const MAX_IMAGE_BASE64_LENGTH = 1_500_000;
@@ -6,8 +7,7 @@ const DEFAULT_MODEL = 'gemini-3.8-flash';
 const DEFAULT_LOCAL_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
 function boundedEnvInt(name: string, fallback: number, min: number, max: number): number {
-  const parsed = Number(Deno.env.get(name));
-  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, Math.floor(parsed))) : fallback;
+  return boundedInteger(Deno.env.get(name), fallback, min, max);
 }
 
 const jsonHeaders = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
@@ -131,19 +131,29 @@ Deno.serve(async request => {
   });
   let body: Record<string, unknown>;
   try {
-    const rawBody = await request.text();
-    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
-      return response(request, 413, { error: 'Request is too large.' });
-    }
-    body = JSON.parse(rawBody);
-  } catch {
-    return response(request, 400, { error: 'Request body must be JSON.' });
+    body = await readLimitedJson(request, MAX_BODY_BYTES);
+  } catch (error) {
+    return response(request, error instanceof RequestBodyError ? error.status : 400, { error: error instanceof RequestBodyError ? error.message : 'Request body must be JSON.' });
   }
   if (body.action !== 'analyze') return response(request, 400, { error: 'Unsupported action.' });
+
+  const consentReceipt = body.consentReceipt;
+  if (typeof consentReceipt !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(consentReceipt)) {
+    return response(request, 403, { error: 'Recorded cloud consent is required.' });
+  }
+  const { data: consent, error: consentError } = await admin.from('consent_records')
+    .select('id').eq('id', consentReceipt).eq('user_id', user.id)
+    .eq('consent_type', 'CLOUD_FRAME_PROCESSING').eq('policy_version', '2026-10-28.2')
+    .is('revoked_at', null).gt('expires_at', new Date().toISOString()).maybeSingle();
+  if (consentError) return response(request, 503, { error: 'Consent verification is unavailable.' });
+  if (!consent) return response(request, 403, { error: 'Cloud consent has expired or was withdrawn. Start a new session or use local-only monitoring.' });
 
   const imageBase64 = body.imageBase64;
   if (typeof imageBase64 !== 'string' || !imageBase64 || imageBase64.length > MAX_IMAGE_BASE64_LENGTH) {
     return response(request, 400, { error: 'Invalid or oversized image.' });
+  }
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64) || imageBase64.length % 4 !== 0) {
+    return response(request, 400, { error: 'Image must be valid base64.' });
   }
   try {
     const signature = atob(imageBase64.slice(0, 8));
@@ -165,12 +175,6 @@ Deno.serve(async request => {
     blinkRatePerMin: clamp(temporal.blinkRatePerMin, 0, 120),
   };
 
-  const { data: globallyAllowed, error: globalQuotaError } = await admin.rpc('consume_ai_global_quota', {
-    p_daily_limit: boundedEnvInt('AI_GLOBAL_DAILY_LIMIT', 100000, 1, 1000000),
-  });
-  if (globalQuotaError) return response(request, 503, { error: 'Global rate limiter unavailable.' });
-  if (!globallyAllowed) return response(request, 503, { error: 'AI service budget reached.' });
-
   const { data: allowed, error: quotaError } = await admin.rpc('consume_ai_quota', {
     p_user_id: user.id,
     p_limit: boundedEnvInt('AI_RATE_LIMIT_PER_MINUTE', 15, 1, 60),
@@ -179,6 +183,11 @@ Deno.serve(async request => {
   });
   if (quotaError) return response(request, 503, { error: 'Rate limiter unavailable.' });
   if (!allowed) return response(request, 429, { error: 'AI analysis rate limit reached.' });
+  const { data: globallyAllowed, error: globalQuotaError } = await admin.rpc('consume_ai_global_quota', {
+    p_daily_limit: boundedEnvInt('AI_GLOBAL_DAILY_LIMIT', 100000, 1, 1000000),
+  });
+  if (globalQuotaError) return response(request, 503, { error: 'Global rate limiter unavailable.' });
+  if (!globallyAllowed) return response(request, 503, { error: 'AI service budget reached.' });
 
   const model = Deno.env.get('GEMINI_MODEL') || DEFAULT_MODEL;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -245,7 +254,7 @@ Deno.serve(async request => {
     const modelResponse = await geminiResponse.json();
     return response(request, 200, validateAnalysis(extractJson(modelResponse)));
   } catch (error) {
-    console.error('Gemini analysis failed', { requestId: requestId(request), message: error instanceof Error ? error.message : 'unknown error' });
+    console.error('Gemini analysis failed', { requestId: requestId(request), category: error instanceof Error ? error.name : 'unknown error' });
     return response(request, 502, { error: 'Remote analysis could not be completed.' });
   } finally {
     clearTimeout(timeout);

@@ -1,4 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.110.1';
+import { readLimitedJson, RequestBodyError } from '../_shared/requestSafety.ts';
+import { hasRecentPasswordSignIn } from '../_shared/recentAuthentication.ts';
 
 const allowedOrigins = () => (Deno.env.get('ALLOWED_ORIGINS') ?? 'http://localhost:3000')
   .split(',').map(value => value.trim()).filter(Boolean);
@@ -39,12 +41,25 @@ Deno.serve(async request => {
     return new Response(JSON.stringify({ error: 'Invalid or expired session.' }), { status: 401, headers });
   }
 
+  // A normal long-lived refresh session must not be sufficient for an irreversible deletion.
+  if (!hasRecentPasswordSignIn(authorization.slice(7), user.id)) {
+    return new Response(JSON.stringify({ error: 'Sign out and sign in again, then retry account deletion within five minutes.' }), { status: 403, headers });
+  }
+  try {
+    const body = await readLimitedJson(request, 1024);
+    if (body.confirmation !== 'DELETE') {
+      return new Response(JSON.stringify({ error: 'Account deletion confirmation is required.' }), { status: 400, headers });
+    }
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error instanceof RequestBodyError ? error.message : 'Invalid request.' }), { status: error instanceof RequestBodyError ? error.status : 400, headers });
+  }
+
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
-    console.error('Account deletion failed', error.message);
+    console.error('Account deletion failed', error.name);
     return new Response(JSON.stringify({ error: 'Account deletion failed.' }), { status: 500, headers });
   }
   return new Response(JSON.stringify({ deleted: true }), { status: 200, headers });
