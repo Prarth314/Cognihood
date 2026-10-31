@@ -13,12 +13,14 @@ let landmarker: FaceLandmarker | null = null;
 let initPromise: Promise<boolean> | null = null;
 let lastEar = 0.3;
 let wasClosed = false;
+let previousDetectionMs = -Infinity;
 let leftOpenSamples: number[] = [];
 let rightOpenSamples: number[] = [];
 
 export function resetFaceTrackingState(): void {
   lastEar = 0.3;
   wasClosed = false;
+  previousDetectionMs = -Infinity;
   leftOpenSamples = [];
   rightOpenSamples = [];
 }
@@ -62,7 +64,7 @@ export function eyeAspectRatio(
   return horizontal > 1e-6 ? vertical / horizontal : NaN;
 }
 
-function matrixToEuler(m: number[]): { pitch: number; yaw: number; roll: number } {
+export function matrixToEuler(m: number[]): { pitch: number; yaw: number; roll: number } {
   const pitch = Math.asin(Math.max(-1, Math.min(1, -m[9])));
   const yaw = Math.atan2(m[8], m[10]);
   const roll = Math.atan2(m[4], m[0]);
@@ -130,6 +132,9 @@ function detectFaceSource(source: HTMLVideoElement | ImageBitmap, timestampMs: n
   };
 
   if (!landmarker || !ready) return base;
+  if (!Number.isFinite(timestampMs) || timestampMs <= previousDetectionMs) return base;
+  if (timestampMs - previousDetectionMs > 500) wasClosed = false;
+  previousDetectionMs = timestampMs;
 
   try {
     const result = landmarker.detectForVideo(source, timestampMs);
@@ -164,9 +169,8 @@ function detectFaceSource(source: HTMLVideoElement | ImageBitmap, timestampMs: n
 
     let headPose = { pitch: 0, yaw: 0, roll: 0 };
     const matrix = result.facialTransformationMatrixes?.[0]?.data;
-    if (matrix && matrix.length >= 16) {
-      headPose = matrixToEuler(Array.from(matrix));
-    }
+    if (!matrix || matrix.length < 16 || !Array.from(matrix).every(Number.isFinite)) { wasClosed = false; return base; }
+    headPose = matrixToEuler(Array.from(matrix));
 
     return {
       timestamp: Date.now(),
@@ -176,8 +180,8 @@ function detectFaceSource(source: HTMLVideoElement | ImageBitmap, timestampMs: n
       headPose,
       faceDetected: true,
     };
-  } catch (err) {
-    console.error('Face detection error', err);
+  } catch {
+    wasClosed = false;
     return base;
   }
 }

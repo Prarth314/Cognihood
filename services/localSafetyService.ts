@@ -15,7 +15,8 @@ export function createLocalSafetyAssessment(
   snapshot: LocalFaceSnapshot | null,
   previous?: SafetyAssessment | null
 ): SafetyAssessment {
-  const faceDetected = snapshot?.faceDetected ?? false;
+  const faceDetected = Boolean(snapshot?.faceDetected && Number.isFinite(snapshot.timestamp) &&
+    Date.now() - snapshot.timestamp >= 0 && Date.now() - snapshot.timestamp <= 500);
   const yaw = snapshot?.headPose.yaw ?? 0;
   const pitch = snapshot?.headPose.pitch ?? 0;
   const distractionLevel = faceDetected
@@ -58,9 +59,9 @@ export function createLocalSafetyAssessment(
   const explanation = !faceDetected
     ? 'Local monitoring cannot see the driver clearly. Reposition the camera before continuing.'
     : state === SafetyState.CRITICAL
-      ? 'Local temporal signals indicate a critical loss of alertness. Pull over safely as soon as possible.'
+      ? 'Observed closure or pose proxies crossed a configured high alert threshold. This is an unvalidated research indicator, not a diagnosis.'
       : state === SafetyState.WARNING
-        ? 'Local temporal signals show elevated fatigue, monotony, or distraction risk.'
+        ? 'Camera evidence is limited or a configured closure/pose threshold was crossed. These proxies do not determine attention or fitness to drive.'
         : temporal.sampleCount < 15
           ? 'Local monitoring is establishing a temporal baseline.'
           : 'Local eye, pose, and temporal signals are within the configured range.';

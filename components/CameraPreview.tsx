@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { LocalFaceSnapshot } from '../types';
 import Badge from './ui/Badge';
+import { CameraLease, type CameraState } from '../services/cameraLease';
 
 type FaceTracker = import('../services/faceTracker').FaceTracker;
 
@@ -26,10 +27,15 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trackerRef = useRef<FaceTracker | null>(null);
+  const cameraLeaseRef = useRef<CameraLease | null>(null);
   const [trackingMode, setTrackingMode] = useState<'worker' | 'main'>('worker');
   const [landmarkerReady, setLandmarkerReady] = useState(false);
   const [landmarkerFailed, setLandmarkerFailed] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraState, setCameraState] = useState<CameraState>('closed');
+  const cameraReadyRef = useRef(false);
+  const visibilityEpoch = useRef(0);
+  const [attempt, setAttempt] = useState(0);
   const lastLocalSampleRef = useRef(0);
   const onLocalSnapshotRef = useRef(onLocalSnapshot);
   onLocalSnapshotRef.current = onLocalSnapshot;
@@ -37,53 +43,52 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   onFrameRef.current = onFrame;
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || !videoRef.current) return;
     let cancelled = false;
-    import('../services/faceTracker').then(mod => mod.createFaceTracker()).then(tracker => {
-      if (cancelled) { tracker.close(); return; }
-      trackerRef.current = tracker;
-      setTrackingMode(tracker.mode);
-      setLandmarkerReady(true);
-    }).catch(() => { if (!cancelled) setLandmarkerFailed(true); });
-    return () => { cancelled = true; trackerRef.current?.close(); trackerRef.current = null; };
-  }, [isActive]);
-
-  useEffect(() => {
-    if (!isActive) return;
-    let acquiredStream: MediaStream | null = null;
-    let cancelled = false;
-
-    async function setupCamera() {
-      try {
-        setCameraError(null);
-        const s = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: 'user' },
-        });
-        if (cancelled) {
-          s.getTracks().forEach(track => track.stop());
-          return;
-        }
-        acquiredStream = s;
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-        }
-      } catch (err) {
-        console.error('Error accessing camera', err);
-        if (!cancelled) setCameraError('Camera access failed. Check browser permissions and reload before monitoring.');
+    const controller = new AbortController();
+    const missing = () => onLocalSnapshotRef.current({ timestamp: Date.now(), faceDetected: false,
+      eyesClosed: false, blinkDetected: false, ear: 0, headPose: { pitch: 0, yaw: 0, roll: 0 } });
+    setLandmarkerReady(false); setLandmarkerFailed(false); setCameraError(null);
+    lastLocalSampleRef.current = 0;
+    const lease = new CameraLease(videoRef.current, state => {
+      if (cancelled) return;
+      setCameraState(state); cameraReadyRef.current = state === 'ready';
+      if (state === 'ready') setCameraError(null);
+      if (['muted', 'ended', 'denied', 'unavailable'].includes(state)) missing();
+      if (state === 'ended') {
+        controller.abort(); trackerRef.current?.close(); trackerRef.current = null;
+        setLandmarkerReady(false); setCameraError('Camera disconnected or permission was revoked. Reconnect it or review browser permissions, then retry.');
+      } else if (state === 'denied' || state === 'unavailable') {
+        setCameraError(state === 'denied' ? 'Camera permission denied. Allow access in browser settings, then retry.' : 'Camera unavailable. Check that a camera is connected and not in use, then retry.');
       }
-    }
+    });
+    cameraLeaseRef.current = lease;
     const handleVisibility = () => {
-      acquiredStream?.getVideoTracks().forEach(track => { track.enabled = !document.hidden; });
+      visibilityEpoch.current++;
+      lease.setVisible(!document.hidden);
+      if (document.hidden) missing();
     };
     document.addEventListener('visibilitychange', handleVisibility);
-    setupCamera();
+    void lease.start().then(async acquired => {
+      if (!acquired || cancelled || controller.signal.aborted) return;
+      lease.setVisible(!document.hidden);
+      const module = await import('../services/faceTracker');
+      const tracker = await module.createFaceTracker({ signal: controller.signal });
+      if (cancelled) { tracker.close(); return; }
+      trackerRef.current = tracker; setTrackingMode(tracker.mode); setLandmarkerReady(true);
+    }).catch(() => {
+      if (cancelled || controller.signal.aborted) return;
+      setLandmarkerFailed(true); setLandmarkerReady(false); lease.close();
+      setCameraError('Face model unavailable. Check your connection for the model download, then retry.');
+      missing();
+    });
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
       cancelled = true;
-      acquiredStream?.getTracks().forEach(track => track.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
+      cameraReadyRef.current = false; visibilityEpoch.current++;
+      document.removeEventListener('visibilitychange', handleVisibility);
+      controller.abort(); trackerRef.current?.close(); trackerRef.current = null; lease.close();
     };
-  }, [isActive]);
+  }, [isActive, attempt]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -110,7 +115,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', handleVisibility);
-      void wakeLock?.release();
+      void wakeLock?.release().catch(() => {});
     };
   }, [isActive]);
 
@@ -121,13 +126,16 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
     const tick = (now: number) => {
       const video = videoRef.current;
       const tracker = trackerRef.current;
-      if (!document.hidden && video && tracker && video.readyState >= 2 && now - lastLocalSampleRef.current >= LOCAL_SAMPLE_MS) {
+      if (!document.hidden && cameraReadyRef.current && video && tracker && video.readyState >= 2 && now - lastLocalSampleRef.current >= LOCAL_SAMPLE_MS) {
         lastLocalSampleRef.current = now;
+        const epoch = visibilityEpoch.current;
         void tracker.analyze(video, now).then(snapshot => {
-          if (snapshot && trackerRef.current === tracker && !document.hidden) onLocalSnapshotRef.current(snapshot);
+          if (snapshot && trackerRef.current === tracker && cameraReadyRef.current && epoch === visibilityEpoch.current && !document.hidden) onLocalSnapshotRef.current(snapshot);
         }).catch(() => {
           if (trackerRef.current !== tracker) return;
           tracker.close(); trackerRef.current = null;
+          cameraLeaseRef.current?.close();
+          onLocalSnapshotRef.current({ timestamp: Date.now(), faceDetected: false, eyesClosed: false, blinkDetected: false, ear: 0, headPose: { pitch: 0, yaw: 0, roll: 0 } });
           setLandmarkerReady(false); setLandmarkerFailed(true);
           setCameraError('Face analysis stopped. Restart the camera check before monitoring.');
         });
@@ -139,7 +147,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
   }, [isActive]);
 
   useEffect(() => {
-    if (!isActive || !remoteAnalysisEnabled) return;
+    if (!isActive || !remoteAnalysisEnabled || cameraState !== 'ready' || !landmarkerReady) return;
 
     const interval = setInterval(() => {
       if (!document.hidden && videoRef.current && videoRef.current.readyState >= 2 && canvasRef.current) {
@@ -153,9 +161,9 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
     }, remoteAnalysisIntervalMs);
 
     return () => clearInterval(interval);
-  }, [isActive, remoteAnalysisEnabled, remoteAnalysisIntervalMs]);
+  }, [isActive, remoteAnalysisEnabled, remoteAnalysisIntervalMs, cameraState, landmarkerReady]);
 
-  const trackingActive = landmarkerReady;
+  const trackingActive = isActive && landmarkerReady && cameraState === 'ready';
 
   return (
     <div
@@ -175,11 +183,11 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
         <div className="flex justify-between items-start gap-2">
           <Badge tone={trackingActive ? 'success' : 'neutral'}>
-            {trackingActive ? 'Face tracking active' : landmarkerFailed ? 'Face model unavailable' : 'Loading face model…'}
+            {trackingActive ? 'Local analysis ready' : landmarkerFailed ? 'Face model unavailable' : cameraState === 'pending' ? 'Waiting for camera permission…' : cameraState === 'ready' ? 'Loading face model…' : 'Camera signal unavailable'}
           </Badge>
           <div className="flex items-center gap-1.5 ui-surface px-2 py-1 rounded-md">
             <span className="ui-status-dot ui-status-error" aria-hidden="true" />
-            <span className="ui-caption">Camera active · not recorded</span>
+            <span className="ui-caption" role="status">{isActive && cameraState === 'ready' ? 'Camera available · not recorded' : cameraState === 'muted' ? 'Camera signal interrupted' : cameraState === 'pending' ? 'Review the browser permission prompt' : 'Camera off'}</span>
           </div>
         </div>
 
@@ -194,6 +202,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       {cameraError && (
         <div className="absolute inset-x-3 bottom-3 ui-surface p-3 rounded-md text-sm text-[var(--error)]" role="alert">
           {cameraError}
+          <button type="button" className="underline ml-2" onClick={() => setAttempt(value => value + 1)}>Retry camera check</button>
         </div>
       )}
     </div>

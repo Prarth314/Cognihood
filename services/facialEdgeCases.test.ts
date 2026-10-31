@@ -61,7 +61,8 @@ describe('synthetic facial signal edge cases (not population accuracy validation
     engine.evaluate(temporal);
     vi.advanceTimersByTime(8001);
     expect(engine.evaluate(temporal).state).toBe(EligibilityState.ELIGIBLE);
-    expect(createLocalSafetyAssessment(temporal, sample(0)).state).toBe(SafetyState.SAFE);
+    expect(createLocalSafetyAssessment(temporal, { ...sample(0), timestamp: Date.now() }).state).toBe(SafetyState.SAFE);
+    expect(createLocalSafetyAssessment(temporal, sample(0)).state).toBe(SafetyState.WARNING);
   });
   it.each([0, 20, 69])('does not present %s%% face coverage as a safe observation', (coverage) => {
     vi.useFakeTimers();

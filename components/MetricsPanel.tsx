@@ -34,7 +34,9 @@ const MetricRow: React.FC<{
   </div>
 );
 
-const MetricsPanel: React.FC<MetricsPanelProps> = ({ metrics, temporal }) => (
+const MetricsPanel: React.FC<MetricsPanelProps> = ({ metrics, temporal }) => !temporal || temporal.sampleCount < 15 || temporal.faceDetectionRate < 70 ? (
+  <Card><h3 className="ui-h3">Facial signals unavailable</h3><p className="ui-body" role="status">Not enough current camera evidence. Adjust the camera while parked or restart the camera check. No current numeric assessment is available.</p></Card>
+) : (
   <Card className="flex flex-col gap-5">
     <div className="flex items-center justify-between">
       <h3 className="ui-h3 flex items-center gap-2">

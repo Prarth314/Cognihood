@@ -63,6 +63,7 @@ describe('camera signal correctness and recovery', () => {
       });
     }
     const result = (score: number) => ({
+      facialTransformationMatrixes: [{ data: [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1] }],
       faceLandmarks: [points],
       faceBlendshapes: [
         {

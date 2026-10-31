@@ -33,7 +33,7 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
           <i className={cn('fas text-sm text-[var(--primary)]', stateIcons[state])} aria-hidden="true" />
           <h3 className="ui-h3">Attention status</h3>
         </div>
-        <Badge tone={stateBadge[state]}>{state}</Badge>
+        <Badge tone={stateBadge[state]}>{state === EligibilityState.ELIGIBLE ? 'Below configured thresholds' : state === EligibilityState.MONITORING ? 'Insufficient evidence' : state === EligibilityState.INELIGIBLE ? 'High prototype indicator' : 'Elevated prototype indicator'}</Badge>
       </div>
 
       <p className="ui-body">
@@ -52,12 +52,12 @@ const EligibilityPanel: React.FC<EligibilityPanelProps> = ({ eligibility, tempor
         </div>
       )}
 
-      {temporal && temporal.sampleCount > 0 && (
+      {temporal && temporal.sampleCount >= 15 && temporal.faceDetectionRate >= 70 && (
         <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border)]">
           {[
             { label: 'PERCLOS 30s', value: `${temporal.perclos30.toFixed(1)}%`, warn: temporal.perclos30 >= 15 },
             { label: 'Head stillness (experimental)', value: temporal.gazeStagnation.toFixed(0), warn: false },
-            { label: 'Gaze stagnation', value: `${temporal.gazeStagnation.toFixed(0)}%`, warn: false },
+            { label: 'Head-pose variance', value: `${temporal.headPoseVariance.toFixed(1)} deg²`, warn: false },
             { label: 'Monotony', value: `${temporal.monotonyDurationSec.toFixed(0)}s`, warn: false },
           ].map(item => (
             <div key={item.label}>

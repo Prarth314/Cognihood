@@ -10,6 +10,16 @@ function variance(values: number[]): number {
   return values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
 }
 
+function observedTime(snapshots: LocalFaceSnapshot[]): number {
+  let total = 0;
+  for (let index = 1; index < snapshots.length; index++) {
+    const previous = snapshots[index - 1], current = snapshots[index];
+    const delta = current.timestamp - previous.timestamp;
+    if (previous.faceDetected && current.faceDetected && delta > 0 && delta <= 500) total += delta;
+  }
+  return total;
+}
+
 function computePerclos(snapshots: LocalFaceSnapshot[]): number {
   let observedMs = 0;
   let closedMs = 0;
@@ -37,8 +47,15 @@ function computePerclos(snapshots: LocalFaceSnapshot[]): number {
 
 function computeBlinkRate(snapshots: LocalFaceSnapshot[]): number {
   if (snapshots.length < 2) return 0;
-  const blinks = snapshots.filter((s) => s.faceDetected && s.blinkDetected).length;
-  const durationMin = (snapshots[snapshots.length - 1].timestamp - snapshots[0].timestamp) / 60_000;
+  let blinks = 0, observedMs = 0;
+  for (let i = 1; i < snapshots.length; i++) {
+    const previous = snapshots[i - 1], current = snapshots[i];
+    const delta = current.timestamp - previous.timestamp;
+    if (!previous.faceDetected || !current.faceDetected || delta <= 0 || delta > 500) continue;
+    observedMs += delta;
+    if (current.blinkDetected && !current.eyesClosed) blinks++;
+  }
+  const durationMin = observedMs / 60_000;
   if (durationMin <= 0) return 0;
   return Math.min(120, blinks / durationMin);
 }
@@ -51,7 +68,7 @@ function computeGazeStagnation(snapshots: LocalFaceSnapshot[]): number {
   const pitchVals = withFace.map((s) => s.headPose.pitch);
   const combinedVariance = variance(yawVals) + variance(pitchVals);
 
-  // Low variance → high stagnation (highway hypnosis signal)
+  // Legacy head-stillness descriptor; not eye gaze or evidence of hypnosis.
   const stagnation = Math.max(0, 100 - (combinedVariance / STAGNATION_VARIANCE_THRESHOLD) * 100);
   return Math.min(100, stagnation);
 }
@@ -111,8 +128,8 @@ function computeHighwayHypnosisIndex(
 export function computeTemporalAnalysis(
   snapshots: LocalFaceSnapshot[],
   geminiMetrics?: DriverMetrics,
+  now = Date.now(),
 ): TemporalAnalysis {
-  const now = Date.now();
   // Last observation wins for duplicate timestamps; reject nonfinite/future inputs.
   const clean = [
     ...new Map(
@@ -153,12 +170,12 @@ export function computeTemporalAnalysis(
     for (let i = 1; i < window30.length; i++) {
       const previous = window30[i - 1],
         current = window30[i];
-      if (previous.faceDetected && current.faceDetected)
-        visibleMs += Math.min(500, current.timestamp - previous.timestamp);
+      const gap = current.timestamp - previous.timestamp;
+      if (previous.faceDetected && current.faceDetected && gap <= 500) visibleMs += gap;
     }
     faceDetectionRate = (visibleMs / Math.max(1, now - window30[0].timestamp)) * 100;
   }
-  if (!window30.length || now - window30[window30.length - 1].timestamp > 500) faceDetectionRate = 0;
+  if (window30.length < 2 || !window30.at(-1)?.faceDetected || now - window30[window30.length - 1].timestamp > 500) faceDetectionRate = 0;
   let closureDurationSec = 0;
   const latest = window30.at(-1);
   if (latest?.faceDetected && latest.eyesClosed && now - latest.timestamp <= 500) {
@@ -171,7 +188,9 @@ export function computeTemporalAnalysis(
     closureDurationSec = (latest.timestamp - start) / 1000;
   }
 
-  const cognitiveLoad = geminiMetrics?.cognitiveLoad ?? 30;
+  // Legacy descriptive composite has a fixed placeholder term. Cloud commentary
+  // must never feed back into deterministic temporal indicators.
+  const cognitiveLoad = 30;
 
   const highwayHypnosisIndex = computeHighwayHypnosisIndex(
     perclos30,
@@ -182,6 +201,9 @@ export function computeTemporalAnalysis(
   );
 
   return {
+    observedMs30: observedTime(window30),
+    observedMs60: observedTime(window60),
+    latestSampleAgeMs: window30.length ? now - window30.at(-1)!.timestamp : Infinity,
     closureDurationSec,
     perclos30,
     perclos60,
@@ -190,7 +212,7 @@ export function computeTemporalAnalysis(
     headPoseVariance,
     highwayHypnosisIndex,
     monotonyDurationSec,
-    sampleCount: window30.length,
+    sampleCount: window30.filter(sample => sample.faceDetected).length,
     faceDetectionRate,
   };
 }

@@ -61,6 +61,7 @@ const InterventionPanel: React.FC<{ assessment: SafetyAssessment | null }> = ({ 
       </div>
 
       <div className="p-4 rounded-lg bg-[var(--bg-muted)] border border-[var(--border)] space-y-3">
+        {assessment?.cloudCommentary && <p className="ui-body">Optional AI commentary (unvalidated): {assessment.cloudCommentary}</p>}
         <p className="ui-caption font-medium">Recommendation</p>
         <p className="ui-body italic">&ldquo;{text}&rdquo;</p>
 

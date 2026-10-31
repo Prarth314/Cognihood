@@ -89,8 +89,7 @@ export class EligibilityEngine {
 
     const durationInStateSec = (now - this.stateEnteredAt) / 1000;
     const confidence = computeConfidence(temporal);
-    const canDrive = this.currentState === EligibilityState.ELIGIBLE ||
-      this.currentState === EligibilityState.MONITORING;
+    const canDrive = this.currentState === EligibilityState.ELIGIBLE;
 
     const primaryReason = reasons[0] ?? 'Monitoring active';
 

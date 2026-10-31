@@ -4,6 +4,17 @@ const fakeWorker = () => ({ postMessage: vi.fn(), terminate: vi.fn(), onmessage:
 const video = {} as HTMLVideoElement;
 afterEach(() => vi.useRealTimers());
 describe('worker frame lifecycle', () => {
+  it('ignores unrelated replies, rejects reordered capture times and discards delayed results', async () => {
+    vi.useFakeTimers();
+    const worker = fakeWorker(); const tracker = new WorkerFaceTracker(worker, async () => ({ close: vi.fn() } as unknown as ImageBitmap));
+    const pending = tracker.analyze(video, 100); await Promise.resolve();
+    const id = worker.postMessage.mock.calls[0][0].id;
+    worker.onmessage!.call(worker as unknown as Worker, { data: { id: id + 42, snapshot: { faceDetected: true } } } as MessageEvent);
+    await vi.advanceTimersByTimeAsync(501);
+    worker.onmessage!.call(worker as unknown as Worker, { data: { id, snapshot: { faceDetected: true } } } as MessageEvent);
+    expect(await pending).toBeNull(); expect(await tracker.analyze(video, 99)).toBeNull();
+    tracker.close(); tracker.close(); expect(worker.terminate).toHaveBeenCalledOnce();
+  });
   it('transfers only one frame at a time instead of building an inference queue', async () => {
     const worker = fakeWorker(); const close = vi.fn();
     const bitmap = vi.fn(async () => ({ close } as unknown as ImageBitmap));

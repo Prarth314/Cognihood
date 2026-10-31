@@ -7,20 +7,28 @@ export interface FaceTracker {
   close(): void;
 }
 
-export async function createFaceTracker(): Promise<FaceTracker> {
-  if (typeof Worker !== 'undefined' && typeof createImageBitmap !== 'undefined') {
+export async function createFaceTracker(options: { signal?: AbortSignal; forceMain?: boolean } = {}): Promise<FaceTracker> {
+  const { signal } = options;
+  signal?.throwIfAborted();
+  if (!options.forceMain && typeof Worker !== 'undefined' && typeof createImageBitmap !== 'undefined') {
     let worker: Worker | undefined;
+    let tracker: WorkerFaceTracker | undefined;
+    const abort = () => tracker?.close();
     try {
       worker = new Worker(new URL('./faceWorker.ts', import.meta.url));
       // Browser bitmap creation requires the Window receiver; passing the native
       // function as a class property gives it the tracker as `this` instead.
-      const tracker = new WorkerFaceTracker(worker, source => globalThis.createImageBitmap(source));
+      tracker = new WorkerFaceTracker(worker, source => globalThis.createImageBitmap(source));
+      signal?.addEventListener('abort', abort, { once: true });
       await tracker.initialize();
       return tracker;
-    } catch { worker?.terminate(); }
+    } catch { tracker ? tracker.close() : worker?.terminate(); signal?.throwIfAborted(); }
+    finally { signal?.removeEventListener('abort', abort); }
   }
   const module = await import('./faceLandmarker');
+  signal?.throwIfAborted();
   if (!await module.initFaceLandmarker()) throw new Error('Face model unavailable.');
+  signal?.throwIfAborted();
   module.resetFaceTrackingState();
   let disposed = false;
   return { mode: 'main', analyze: async (video, time) => disposed ? null : module.detectFaceFromVideo(video, time), close: () => { disposed = true; } };
@@ -32,6 +40,7 @@ export class WorkerFaceTracker implements FaceTracker {
   private sequence = 0;
   private closed = false;
   private busy = false;
+  private lastTimestamp = -Infinity;
   private pending = new Map<number, { resolve: (reply: FaceWorkerReply) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   constructor(private worker: WorkerPort, private bitmap: (source: HTMLVideoElement) => Promise<ImageBitmap>) {
     worker.onmessage = event => {
@@ -63,7 +72,8 @@ export class WorkerFaceTracker implements FaceTracker {
     if (!reply.ready) throw new Error('Face worker model unavailable.');
   }
   async analyze(video: HTMLVideoElement, timestampMs: number) {
-    if (this.closed || this.busy) return null;
+    if (this.closed || this.busy || !Number.isFinite(timestampMs) || timestampMs <= this.lastTimestamp) return null;
+    this.lastTimestamp = timestampMs;
     this.busy = true;
     const capturedAt = Date.now();
     let frame: ImageBitmap | undefined;
@@ -71,9 +81,9 @@ export class WorkerFaceTracker implements FaceTracker {
       frame = await this.bitmap(video);
       if (this.closed) { frame.close(); return null; }
       const reply = await this.request({ kind: 'frame', id: ++this.sequence, bitmap: frame, timestampMs, capturedAt }, [frame]);
-      return this.closed ? null : reply.snapshot ?? null;
+      return this.closed || Date.now() - capturedAt > 500 || Date.now() < capturedAt ? null : reply.snapshot ?? null;
     } catch (error) { frame?.close(); throw error; }
     finally { this.busy = false; }
   }
-  close() { this.closed = true; this.worker.terminate(); this.fail(new Error('Face tracker is closed.')); }
+  close() { if (this.closed) return; this.closed = true; this.worker.onmessage = null; this.worker.onerror = null; this.worker.terminate(); this.fail(new Error('Face tracker is closed.')); }
 }

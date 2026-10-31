@@ -37,6 +37,8 @@ import { saveTrip, getBaseline } from './services/tripStore';
 import { requestMotionPermission, startMotionListener, stopMotionListener } from './services/motionService';
 import { speakCalm, speakUrgent } from './services/ttsService';
 import { createLocalSafetyAssessment } from './services/localSafetyService';
+import { applyCloudCommentary } from './services/cloudCommentary';
+import { stopSpeech } from './services/ttsService';
 import { appViewForPath } from './services/siteRoutes';
 import { recordCloudConsent, revokeCloudConsent } from './services/cloudConsent';
 
@@ -91,6 +93,11 @@ const App: React.FC = () => {
     if (!remoteAnalysisEnabled) remoteRequestRef.current?.abort();
     return () => { analysisGenerationRef.current++; remoteRequestRef.current?.abort(); };
   }, [remoteAnalysisEnabled]);
+  useEffect(() => {
+    const hidden = () => { if (document.hidden) { analysisGenerationRef.current++; remoteRequestRef.current?.abort(); stopSpeech(); } };
+    document.addEventListener('visibilitychange', hidden);
+    return () => { document.removeEventListener('visibilitychange', hidden); stopSpeech(); };
+  }, []);
 
   const endTrip = useCallback(async () => {
     const session = tripSessionRef.current;
@@ -155,6 +162,7 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const leaveDashboard = useCallback(async () => {
+    stopSpeech();
     analysisGenerationRef.current++;
     remoteRequestRef.current?.abort();
     cloudConsentRef.current = false;
@@ -166,6 +174,8 @@ const App: React.FC = () => {
     const saved = await endTrip();
     if (!saved) return false;
     metricsBufferRef.current.clear();
+    latestSnapshotRef.current = null;
+    lastUiUpdateRef.current = 0;
     eligibilityEngineRef.current.reset();
     setTemporalAnalysis(null);
     setEligibility(null);
@@ -203,7 +213,7 @@ const App: React.FC = () => {
 
     if (elig.state !== lastEligibilityRef.current) {
       if (elig.state === EligibilityState.INELIGIBLE) {
-        speakUrgent('Alertness below safe threshold. Pull over when possible.');
+        speakUrgent('A configured eye-closure threshold was crossed. This is an experimental indicator.');
       } else if (elig.state === EligibilityState.CAUTION) {
         speakCalm('Elevated attention-risk signals detected. Consider a break.');
       }
@@ -218,7 +228,7 @@ const App: React.FC = () => {
     metricsBufferRef.current.add(snapshot);
     latestSnapshotRef.current = snapshot;
     const now = Date.now();
-    if (now - lastUiUpdateRef.current < 500) return;
+    if (snapshot.faceDetected && now - lastUiUpdateRef.current < 500) return;
     lastUiUpdateRef.current = now;
     const { temporal, elig } = runTemporalPipeline();
 
@@ -237,7 +247,7 @@ const App: React.FC = () => {
         eligibility: elig,
       };
       setAssessment(updated);
-      if (snapshot.faceDetected && temporal.faceDetectionRate >= 70) tripSessionRef.current?.recordAssessment(updated, temporal);
+      if (snapshot.faceDetected && temporal.faceDetectionRate >= 70 && temporal.sampleCount >= 15) tripSessionRef.current?.recordAssessment(updated, temporal);
     } else if (temporal.sampleCount > 0) {
       const localAssessment = createLocalSafetyAssessment(temporal, snapshot);
       const full = { ...localAssessment, eligibility: elig };
@@ -272,11 +282,12 @@ const App: React.FC = () => {
       const result = await analyzeDrivingEnvironmentLazy(base64, history, temporal, latestSnapshotRef.current, controller.signal, cloudConsentReceiptRef.current ?? undefined);
       if (controller.signal.aborted || generation !== analysisGenerationRef.current || !cloudConsentRef.current) return;
       const { temporal: updatedTemporal, elig } = runTemporalPipeline(result);
-      const full = { ...result, temporal: updatedTemporal, eligibility: elig };
+      const full = applyCloudCommentary(result, updatedTemporal, latestSnapshotRef.current, elig);
+      if (!full) return;
       setRemoteAnalysisError(null);
       setAssessment(full);
       setHistory(prev => [...prev.slice(-20), full]);
-      tripSessionRef.current?.recordAssessment(full, updatedTemporal);
+      // Cloud completion cannot add an extra scoring sample at provider cadence.
     } catch (err) {
       if (controller.signal.aborted || generation !== analysisGenerationRef.current || !cloudConsentRef.current) return;
       const message = err instanceof Error ? err.message : 'Remote analysis unavailable';
@@ -290,11 +301,9 @@ const App: React.FC = () => {
       assessmentRef.current = fallback;
       setTemporalAnalysis(temporal);
       setEligibility(elig);
-      console.error('Remote frame analysis unavailable; local monitoring remains active.', err);
     } finally {
       if (remoteRequestRef.current === controller) remoteRequestRef.current = null;
-      analyzingRef.current = false;
-      setIsAnalyzing(false);
+      if (!remoteRequestRef.current) { analyzingRef.current = false; setIsAnalyzing(false); }
     }
   }, [history, currentView, runTemporalPipeline]);
 
@@ -338,7 +347,8 @@ const App: React.FC = () => {
     setCurrentView(view);
   };
 
-  const safetyState = assessment?.state ?? SafetyState.SAFE;
+  const evidenceAvailable = Boolean(temporalAnalysis && temporalAnalysis.sampleCount >= 15 && temporalAnalysis.faceDetectionRate >= 70);
+  const safetyState = assessment?.state ?? SafetyState.WARNING;
   const safetyColors = SAFETY_COLORS[safetyState];
   const defaultMetrics = { ear: 0.3, blinkRate: 12, closureDuration: 0.1, headPose: { pitch: 0, yaw: 0, roll: 0 }, stressLevel: 0, distractionLevel: 0, cognitiveLoad: 8 };
   const showCriticalOverlay = assessment?.state === SafetyState.CRITICAL || eligibility?.state === EligibilityState.INELIGIBLE;
@@ -467,9 +477,9 @@ const App: React.FC = () => {
                     remoteAnalysisIntervalMs={remoteAnalysisIntervalMs}
                   />
                   <div className="absolute top-4 left-4 ui-surface p-4 rounded-lg pointer-events-none" aria-live="polite">
-                    <div className="ui-caption font-medium mb-1">Safety index</div>
+                    <div className="ui-caption font-medium mb-1">Experimental signal index</div>
                     <div className="text-4xl sm:text-5xl font-bold tracking-tight" style={{ color: safetyColors.text }}>
-                      {assessment ? assessment.score.toFixed(0) : '—'}
+                      {assessment && evidenceAvailable ? assessment.score.toFixed(0) : 'Unavailable'}
                     </div>
                   </div>
                   {isAnalyzing && (

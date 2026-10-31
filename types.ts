@@ -47,6 +47,9 @@ export interface LocalFaceSnapshot {
 }
 
 export interface TemporalAnalysis {
+  observedMs30?: number;
+  observedMs60?: number;
+  latestSampleAgeMs?: number;
   closureDurationSec?: number;
   perclos30: number;
   perclos60: number;
@@ -78,6 +81,7 @@ export interface NetworkEvent {
 }
 
 export interface SafetyAssessment {
+  cloudCommentary?: string;
   score: number;
   state: SafetyState;
   autonomyLevel: AutonomyLevel;
