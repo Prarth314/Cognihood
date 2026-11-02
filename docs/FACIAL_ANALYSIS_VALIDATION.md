@@ -1,5 +1,7 @@
 # Facial signal revision — October 29, 2026
 
+For the subsequent captured-time/coverage revision, study manifest, event matcher and actual temporal replay, see [the signal contract](SIGNAL_CONTRACT.md) and [research workflow/evidence guide](RESEARCH_WORKFLOW.md). Historical test counts below describe the original revision, not the current suite. Blink-rate normalization now uses valid observed intervals; missing latest faces immediately withdraw live evidence.
+
 ## What this system measures
 
 MediaPipe detects landmarks and blendshape coefficients; CogniHood does not identify a person. Eye aspect ratio (EAR), bilateral closure, blink events and head-pose changes are camera-derived proxies. Neither facial appearance nor expression establishes an exact probability of safe driving, stress, impairment or cognitive load. The displayed index remains an unvalidated engineering heuristic. The signal-quality number is not classification accuracy or a calibrated confidence interval.

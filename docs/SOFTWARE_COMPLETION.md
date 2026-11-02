@@ -1,5 +1,7 @@
 # Software implementation and deployment status
 
+For the newer research-workflow milestone and November 2 verification, see [RESEARCH_WORKFLOW.md](RESEARCH_WORKFLOW.md) and [SIGNAL_CONTRACT.md](SIGNAL_CONTRACT.md). Counts and runs below describe the earlier implementation batch and are retained as historical evidence.
+
 This work excludes email/SMTP setup. Completed commits are pushed promptly; a source commit is not proof of backend deployment or real-world model accuracy.
 
 ## Camera performance

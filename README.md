@@ -306,6 +306,12 @@ GitHub Actions runs these checks for pushes to `main` and pull requests. The bac
 
 Browser tests use synthetic frames, not participant faces. They verify worker/WASM loading, CSP, keyboard access, responsive login, automated accessibility rules and account workflows. A passing test suite does not establish driving-safety accuracy. See the [facial validation protocol and offline evaluation tool](docs/FACIAL_ANALYSIS_VALIDATION.md) for the remaining study requirements.
 
+### Research workflow and evidence
+
+Follow the [research workflow guide](docs/RESEARCH_WORKFLOW.md) for the capability/evidence matrix, reproducible study manifest and replay command, measured CI performance boundaries, hosted deployment-parity checklist, stationary demo and accurately scoped portfolio bullets. The [signal contract](docs/SIGNAL_CONTRACT.md) defines each displayed indicator and its missing-data behavior.
+
+The pipeline uses facial landmarks rather than identity recognition. Optional AI text is separate commentary; it cannot replace newer local measurements or create a scoring sample. Missing/stale evidence is shown as unavailable. No representative real-face accuracy, Pi/mobile performance or hosted backend parity is established by the synthetic checks.
+
 ## 🗂 Repository map
 
 ```text

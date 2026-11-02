@@ -1,9 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WorkerFaceTracker } from './faceTracker';
+import { WorkerFaceTracker, createFaceTracker } from './faceTracker';
 const fakeWorker = () => ({ postMessage: vi.fn(), terminate: vi.fn(), onmessage: null as Worker['onmessage'], onerror: null as Worker['onerror'] });
 const video = {} as HTMLVideoElement;
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('worker frame lifecycle', () => {
+  it('aborts pending factory initialization without starting main-thread fallback', async () => {
+    vi.useFakeTimers(); const worker = fakeWorker();
+    vi.stubGlobal('Worker', function() { return worker; });
+    vi.stubGlobal('createImageBitmap', vi.fn());
+    const controller = new AbortController();
+    const pending = createFaceTracker({ signal: controller.signal });
+    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    controller.abort(); await rejected;
+    expect(worker.terminate).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
+  });
   it('bounds bitmap capture itself and closes a bitmap delivered after the deadline', async () => {
     vi.useFakeTimers(); const worker = fakeWorker(); const close = vi.fn();
     let finish!: (bitmap: ImageBitmap) => void;

@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+
+if (process.env.npm_lifecycle_event === 'build') {
+  assert(!existsSync('dist/tests'), 'Production build unexpectedly contains a test harness');
+  assert(!existsSync('dist/private-evaluation'), 'Production build unexpectedly contains study data');
+}
 
 const publicPaths = ['', 'mission', 'how-it-works', 'hardware'];
 for (const path of publicPaths) {
