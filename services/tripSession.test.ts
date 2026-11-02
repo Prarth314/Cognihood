@@ -69,8 +69,15 @@ describe('TripSession', () => {
     const trip = session.finalize(null);
     expect(trip).not.toBeNull();
     expect(trip?.distanceMi).toBe(0);
-    expect(trip?.algorithmVersion).toBe('2026.10.13');
+    expect(trip?.algorithmVersion).toBe('2026.10.31');
     expect(trip?.cloudAnalysisUsed).toBe(true);
     expect(trip?.cloudConsentAt).not.toBeNull();
+  });
+  it('uses the capture stop time rather than network/save completion time', () => {
+    vi.useFakeTimers(); vi.setSystemTime(1_800_000_000_000);
+    const session = new TripSession('00000000-0000-4000-8000-000000000000');
+    for (let index = 0; index < 3; index++) { session.recordAssessment(assessment, null); vi.advanceTimersByTime(15000); }
+    const stoppedAt = Date.now(); vi.advanceTimersByTime(120000);
+    expect(session.finalize(null, stoppedAt)).toMatchObject({ endTime: stoppedAt, durationMs: 45000 });
   });
 });

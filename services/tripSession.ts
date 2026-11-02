@@ -86,7 +86,7 @@ export class TripSession {
 
     if (assessment.metrics.distractionLevel >= 65 && now - this.lastDistractionAt > 20_000) {
       this.lastDistractionAt = now;
-      this.addEvent('DISTRACTION', assessment.metrics.distractionLevel, 'Sustained off-road gaze pattern');
+      this.addEvent('DISTRACTION', assessment.metrics.distractionLevel, 'Head-pose deviation proxy crossed its configured threshold');
     }
 
     if (temporal && temporal.perclos30 >= 18 && now - this.lastFatigueAt > 25_000) {
@@ -112,8 +112,7 @@ export class TripSession {
     this.addEvent('ATTENTION_FAIL', 70, 'Missed attention check prompt');
   }
 
-  finalize(baseline: CognitiveFingerprint | null): TripRecord | null {
-    const endTime = Date.now();
+  finalize(baseline: CognitiveFingerprint | null, endTime = Date.now()): TripRecord | null {
     const durationMs = endTime - this.startTime;
     if (durationMs < TripSession.MIN_DURATION_MS || this.scoreCount < TripSession.MIN_SCORE_SAMPLES) {
       return null;
@@ -161,7 +160,7 @@ export class TripSession {
       nationalPercentile: 0,
       nationalComparison,
       scoreTimeline: this.scoreTimeline,
-      algorithmVersion: '2026.10.13',
+      algorithmVersion: '2026.10.31',
       measurementSource: 'BROWSER_CAMERA',
       cloudAnalysisUsed: this.cloudConsentAt !== null,
       cloudConsentAt: this.cloudConsentAt,

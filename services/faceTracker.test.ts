@@ -4,10 +4,19 @@ const fakeWorker = () => ({ postMessage: vi.fn(), terminate: vi.fn(), onmessage:
 const video = {} as HTMLVideoElement;
 afterEach(() => vi.useRealTimers());
 describe('worker frame lifecycle', () => {
+  it('bounds bitmap capture itself and closes a bitmap delivered after the deadline', async () => {
+    vi.useFakeTimers(); const worker = fakeWorker(); const close = vi.fn();
+    let finish!: (bitmap: ImageBitmap) => void;
+    const tracker = new WorkerFaceTracker(worker, () => new Promise(resolve => { finish = resolve; }));
+    const pending = tracker.analyze(video, 10); const rejection = expect(pending).rejects.toThrow('capture timed out');
+    await vi.advanceTimersByTimeAsync(5001); await rejection;
+    finish({ close } as unknown as ImageBitmap); await Promise.resolve();
+    expect(close).toHaveBeenCalledOnce(); expect(worker.postMessage).not.toHaveBeenCalled(); tracker.close();
+  });
   it('ignores unrelated replies, rejects reordered capture times and discards delayed results', async () => {
     vi.useFakeTimers();
     const worker = fakeWorker(); const tracker = new WorkerFaceTracker(worker, async () => ({ close: vi.fn() } as unknown as ImageBitmap));
-    const pending = tracker.analyze(video, 100); await Promise.resolve();
+    const pending = tracker.analyze(video, 100); await vi.advanceTimersByTimeAsync(0);
     const id = worker.postMessage.mock.calls[0][0].id;
     worker.onmessage!.call(worker as unknown as Worker, { data: { id: id + 42, snapshot: { faceDetected: true } } } as MessageEvent);
     await vi.advanceTimersByTimeAsync(501);

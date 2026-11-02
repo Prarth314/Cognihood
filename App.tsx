@@ -71,6 +71,8 @@ const App: React.FC = () => {
   const [remoteAnalysisEnabled, setRemoteAnalysisEnabled] = useState(false);
   const [remoteAnalysisError, setRemoteAnalysisError] = useState<string | null>(null);
   const [tripNotice, setTripNotice] = useState<string | null>(null);
+  const [sessionCaptureEnabled, setSessionCaptureEnabled] = useState(false);
+  const sessionEndedAtRef = useRef<number | null>(null);
 
   const metricsBufferRef = useRef(new MetricsBuffer());
   const eligibilityEngineRef = useRef(new EligibilityEngine());
@@ -108,7 +110,7 @@ const App: React.FC = () => {
     const save = async () => {
       try {
         const baseline = pendingTripRef.current ? null : await getBaseline(user.id);
-        const trip = pendingTripRef.current ?? session?.finalize(baseline);
+        const trip = pendingTripRef.current ?? session?.finalize(baseline, sessionEndedAtRef.current ?? Date.now());
         if (!trip) {
           tripSessionRef.current = null;
           setTripNotice('Short session discarded because it did not contain enough valid monitoring data.');
@@ -162,6 +164,9 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const leaveDashboard = useCallback(async () => {
+    sessionEndedAtRef.current ??= Date.now();
+    setSessionCaptureEnabled(false);
+    setAssessment(null); setTemporalAnalysis(null); setEligibility(null);
     stopSpeech();
     analysisGenerationRef.current++;
     remoteRequestRef.current?.abort();
@@ -189,7 +194,9 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentView !== 'dashboard' || !user) return;
-
+    sessionEndedAtRef.current = null;
+    latestSnapshotRef.current = null;
+    setSessionCaptureEnabled(true);
     tripSessionRef.current = new TripSession(user.id, remoteEnabledAtStartRef.current);
     if (import.meta.env.VITE_ENABLE_EXPERIMENTAL_MOTION === 'true') {
       startMotionListener((type, g) => {
@@ -224,7 +231,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleLocalSnapshot = useCallback((snapshot: LocalFaceSnapshot) => {
-    if (currentView !== 'dashboard' || pendingTripRef.current) return;
+    if (currentView !== 'dashboard' || pendingTripRef.current || sessionEndedAtRef.current !== null) return;
     metricsBufferRef.current.add(snapshot);
     latestSnapshotRef.current = snapshot;
     const now = Date.now();
@@ -270,7 +277,7 @@ const App: React.FC = () => {
   }, [currentView, handleLocalSnapshot]);
 
   const handleFrame = useCallback(async (base64: string) => {
-    if (analyzingRef.current || currentView !== 'dashboard' || !cloudConsentRef.current || pendingTripRef.current) return;
+    if (analyzingRef.current || currentView !== 'dashboard' || !cloudConsentRef.current || pendingTripRef.current || document.hidden || sessionEndedAtRef.current !== null) return;
     const generation = analysisGenerationRef.current;
     const controller = new AbortController();
     remoteRequestRef.current = controller;
@@ -470,7 +477,7 @@ const App: React.FC = () => {
                   style={{ borderColor: safetyColors.border }}
                 >
                   <CameraPreview
-                    isActive
+                    isActive={sessionCaptureEnabled}
                     onFrame={handleFrame}
                     onLocalSnapshot={handleLocalSnapshot}
                     remoteAnalysisEnabled={remoteAnalysisEnabled}

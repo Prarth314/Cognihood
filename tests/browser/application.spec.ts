@@ -29,5 +29,14 @@ test('real worker loads same-origin WASM under CSP and keeps main-thread timers 
   await expect(page.getByRole('status')).not.toHaveText('Loading',{timeout:55_000});
   const proof=JSON.parse(await page.getByRole('status').innerText());
   expect(proof.error).toBeUndefined(); expect(proof.mode).toBe('worker'); expect(proof.detected).toBe(false); expect(proof.ticks).toBeGreaterThan(0);
+  expect(proof.diagnostics.busyDrops).toBeGreaterThan(0);
+  expect(proof.commit).toMatch(/^[a-f0-9]{40}$/);
   console.log('Synthetic non-face worker timing:',JSON.stringify(proof));
+});
+test('actual main-thread compatibility model processes the synthetic stream', async ({ page }) => {
+  await page.goto('/tests/browser/worker-harness.html?mode=main');
+  await expect(page.getByRole('status')).not.toHaveText('Loading',{timeout:55_000});
+  const proof = JSON.parse(await page.getByRole('status').innerText());
+  expect(proof.error).toBeUndefined(); expect(proof.mode).toBe('main'); expect(proof.diagnostics.completed).toBeGreaterThan(0);
+  console.log('Synthetic non-face compatibility timing:', JSON.stringify(proof));
 });

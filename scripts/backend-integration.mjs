@@ -74,7 +74,8 @@ try {
     COGNI_LOCAL_BACKEND_URL: api.origin, COGNI_E2E_EMAIL: c.email, COGNI_E2E_PASSWORD: c.password };
   execFileSync('npm', ['run', 'build:test'], { env: browserEnv, stdio: 'pipe', timeout: 120_000 });
   try {
-    execFileSync('npx', ['playwright', 'test', '--reporter=json'], { env: browserEnv, stdio: 'pipe', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 });
+    const report = JSON.parse(execFileSync('npx', ['playwright', 'test', '--reporter=json'], { env: browserEnv, encoding: 'utf8', stdio: 'pipe', timeout: 240_000, maxBuffer: 8 * 1024 * 1024 }));
+    assert.equal(report.stats.skipped, 0, 'Critical browser/backend checks cannot silently skip');
   } catch (error) {
     // Emit actionable test failures, stripping every fixture credential first.
     try {

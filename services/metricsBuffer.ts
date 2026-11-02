@@ -10,7 +10,8 @@ export class MetricsBuffer {
   add(snapshot: LocalFaceSnapshot): void {
     const now = Date.now();
     if (!Number.isFinite(snapshot.timestamp) || snapshot.timestamp > now || snapshot.timestamp < now - MAX_BUFFER_AGE_MS) return;
-    const latest = this.getLatest();
+    let latest = this.getLatest();
+    if (latest && latest.timestamp > now) { this.clear(); latest = null; }
     // Arrival order is part of the live contract; never let a delayed response
     // replace the newest observation. Offline replay sorts its own input.
     if (latest && snapshot.timestamp <= latest.timestamp) return;

@@ -183,7 +183,7 @@ const CameraPreview: React.FC<CameraPreviewProps> = ({
       <div className="absolute inset-0 pointer-events-none p-3 flex flex-col justify-between">
         <div className="flex justify-between items-start gap-2">
           <Badge tone={trackingActive ? 'success' : 'neutral'}>
-            {trackingActive ? 'Local analysis ready' : landmarkerFailed ? 'Face model unavailable' : cameraState === 'pending' ? 'Waiting for camera permission…' : cameraState === 'ready' ? 'Loading face model…' : 'Camera signal unavailable'}
+            {!isActive ? 'Camera off' : trackingActive ? 'Local analysis ready' : landmarkerFailed ? 'Face model unavailable' : cameraState === 'pending' ? 'Waiting for camera permission…' : cameraState === 'ready' ? 'Loading face model…' : 'Camera signal unavailable'}
           </Badge>
           <div className="flex items-center gap-1.5 ui-surface px-2 py-1 rounded-md">
             <span className="ui-status-dot ui-status-error" aria-hidden="true" />

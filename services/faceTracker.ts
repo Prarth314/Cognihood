@@ -5,6 +5,7 @@ export interface FaceTracker {
   mode: 'worker' | 'main';
   analyze(video: HTMLVideoElement, timestampMs: number): Promise<LocalFaceSnapshot | null>;
   close(): void;
+  diagnostics(): { attempts: number; completed: number; busyDrops: number; staleDrops: number; errors: number };
 }
 
 export async function createFaceTracker(options: { signal?: AbortSignal; forceMain?: boolean } = {}): Promise<FaceTracker> {
@@ -31,7 +32,14 @@ export async function createFaceTracker(options: { signal?: AbortSignal; forceMa
   signal?.throwIfAborted();
   module.resetFaceTrackingState();
   let disposed = false;
-  return { mode: 'main', analyze: async (video, time) => disposed ? null : module.detectFaceFromVideo(video, time), close: () => { disposed = true; } };
+  const stats = { attempts: 0, completed: 0, busyDrops: 0, staleDrops: 0, errors: 0 };
+  return { mode: 'main', analyze: async (video, time) => {
+    stats.attempts++; if (disposed) return null;
+    const capturedAt = Date.now();
+    const snapshot = module.detectFaceFromVideo(video, time);
+    if (Date.now() - capturedAt > 500 || Date.now() < capturedAt) { stats.staleDrops++; return null; }
+    stats.completed++; return { ...snapshot, timestamp: capturedAt };
+  }, diagnostics: () => ({ ...stats }), close: () => { disposed = true; } };
 }
 
 type WorkerPort = Pick<Worker, 'postMessage' | 'terminate' | 'onmessage' | 'onerror'>;
@@ -41,6 +49,9 @@ export class WorkerFaceTracker implements FaceTracker {
   private closed = false;
   private busy = false;
   private lastTimestamp = -Infinity;
+  private stats = { attempts: 0, completed: 0, busyDrops: 0, staleDrops: 0, errors: 0 };
+  private cancelCapture: (() => void) | undefined;
+  diagnostics() { return { ...this.stats }; }
   private pending = new Map<number, { resolve: (reply: FaceWorkerReply) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   constructor(private worker: WorkerPort, private bitmap: (source: HTMLVideoElement) => Promise<ImageBitmap>) {
     worker.onmessage = event => {
@@ -72,18 +83,28 @@ export class WorkerFaceTracker implements FaceTracker {
     if (!reply.ready) throw new Error('Face worker model unavailable.');
   }
   async analyze(video: HTMLVideoElement, timestampMs: number) {
-    if (this.closed || this.busy || !Number.isFinite(timestampMs) || timestampMs <= this.lastTimestamp) return null;
+    this.stats.attempts++;
+    if (this.busy) { this.stats.busyDrops++; return null; }
+    if (this.closed || !Number.isFinite(timestampMs) || timestampMs <= this.lastTimestamp) return null;
     this.lastTimestamp = timestampMs;
     this.busy = true;
     const capturedAt = Date.now();
     let frame: ImageBitmap | undefined;
+    let captureTimer: ReturnType<typeof setTimeout> | undefined;
+    let abandoned = false;
     try {
-      frame = await this.bitmap(video);
+      frame = await new Promise<ImageBitmap>((resolve, reject) => {
+        this.cancelCapture = () => { abandoned = true; reject(new Error('Face capture cancelled.')); };
+        captureTimer = setTimeout(() => { abandoned = true; reject(new Error('Frame capture timed out.')); }, 5000);
+        this.bitmap(video).then(bitmap => { if (abandoned || this.closed) { bitmap.close(); reject(new Error('Face capture cancelled.')); } else resolve(bitmap); }, reject);
+      });
+      clearTimeout(captureTimer); this.cancelCapture = undefined;
       if (this.closed) { frame.close(); return null; }
       const reply = await this.request({ kind: 'frame', id: ++this.sequence, bitmap: frame, timestampMs, capturedAt }, [frame]);
-      return this.closed || Date.now() - capturedAt > 500 || Date.now() < capturedAt ? null : reply.snapshot ?? null;
-    } catch (error) { frame?.close(); throw error; }
-    finally { this.busy = false; }
+      if (this.closed || Date.now() - capturedAt > 500 || Date.now() < capturedAt) { this.stats.staleDrops++; return null; }
+      this.stats.completed++; return reply.snapshot ?? null;
+    } catch (error) { this.stats.errors++; frame?.close(); if (this.closed) return null; throw error; }
+    finally { clearTimeout(captureTimer); this.cancelCapture = undefined; this.busy = false; }
   }
-  close() { if (this.closed) return; this.closed = true; this.worker.onmessage = null; this.worker.onerror = null; this.worker.terminate(); this.fail(new Error('Face tracker is closed.')); }
+  close() { if (this.closed) return; this.closed = true; this.cancelCapture?.(); this.worker.onmessage = null; this.worker.onerror = null; this.worker.terminate(); this.fail(new Error('Face tracker is closed.')); }
 }

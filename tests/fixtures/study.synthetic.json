@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "eventToleranceMs": 200,
+  "recordings": [{
+    "recordingId": "synthetic-01", "participantGroup": "synthetic-group-01", "sessionGroup": "synthetic-session-01", "split": "development",
+    "provenance": { "kind": "synthetic", "reference": "Scripted observations; no camera or person", "permissionReference": "Repository MIT synthetic fixture" },
+    "capture": { "device": "synthetic", "os": "not applicable", "browser": "not applicable", "width": 640, "height": 480, "fps": 10 },
+    "conditions": { "lighting": "normal", "eyewear": "none", "pose": "forward" },
+    "labels": { "task": "bilateral-eye-closure", "definition": "Scripted closed booleans; event is closure onset", "annotatorCodes": ["synthetic-generator"], "adjudication": "No human labels" },
+    "versions": { "applicationCommit": "0000000000000000000000000000000000000000", "sdk": "not run", "model": "not run", "algorithm": "temporal-replay", "configurationDigest": "0000000000000000000000000000000000000000000000000000000000000000" },
+    "observations": [
+      { "timestampMs": 0, "referenceClosed": true, "predictedClosed": true, "faceAvailable": true, "headPose": { "pitch": 0, "yaw": 0, "roll": 0 } },
+      { "timestampMs": 500, "referenceClosed": true, "predictedClosed": true, "faceAvailable": true, "headPose": { "pitch": 0, "yaw": 0, "roll": 0 } },
+      { "timestampMs": 1000, "referenceClosed": null, "predictedClosed": null, "faceAvailable": false, "headPose": { "pitch": 0, "yaw": 0, "roll": 0 } }
+    ],
+    "observedIntervals": [{ "startMs": 0, "endMs": 1000 }],
+    "referenceEvents": [0], "predictedEvents": [100]
+  }]
+}

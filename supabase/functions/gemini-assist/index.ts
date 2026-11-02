@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.110.1';
 import { readLimitedJson, RequestBodyError, boundedInteger } from '../_shared/requestSafety.ts';
+import { readProviderJson } from '../_shared/providerResponse.ts';
 
 const MAX_BODY_BYTES = 2_000_000;
 const MAX_IMAGE_BASE64_LENGTH = 1_500_000;
@@ -251,7 +252,7 @@ Deno.serve(async request => {
       console.error('Gemini request failed', { requestId: requestId(request), status: geminiResponse.status });
       return response(request, 502, { error: 'Remote model request failed.' });
     }
-    const modelResponse = await geminiResponse.json();
+    const modelResponse = await readProviderJson(geminiResponse);
     return response(request, 200, validateAnalysis(extractJson(modelResponse)));
   } catch (error) {
     console.error('Gemini analysis failed', { requestId: requestId(request), category: error instanceof Error ? error.name : 'unknown error' });

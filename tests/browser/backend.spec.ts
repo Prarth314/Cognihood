@@ -17,7 +17,7 @@ async function checkThemes(page: Page) {
 }
 
 test('confirmed account can sign in, review consent, export/delete a session and sign out', async ({ page }) => {
-  test.skip(!process.env.COGNI_E2E_EMAIL, 'Disposable backend fixture is required');
+  expect(process.env.COGNI_E2E_EMAIL, 'Disposable backend fixture is required').toBeTruthy();
   await page.addInitScript(() => {
     localStorage.setItem('cognihood_onboarding_done', 'true');
     (window as any).__cameraCalls = 0;

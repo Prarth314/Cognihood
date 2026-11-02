@@ -26,7 +26,9 @@ jobs:
       - name: Check Edge Functions
         run: npm exec --yes --package=deno@2.5.6 -- deno check --node-modules-dir=none supabase/functions/gemini-assist/index.ts supabase/functions/delete-account/index.ts
       - name: Check offline evaluation command
-        run: npm exec --yes --package=deno@2.5.6 -- deno check --node-modules-dir=none scripts/evaluate-facial.mts
+        run: npm exec --yes --package=deno@2.5.6 -- deno check --node-modules-dir=none scripts/evaluate-facial.mts scripts/evaluate-study.mts
+      - name: Replay synthetic offline evaluation fixture (not empirical accuracy)
+        run: npm exec --yes --package=deno@2.5.6 -- deno run --node-modules-dir=none --allow-read=tests/fixtures scripts/evaluate-study.mts tests/fixtures/study.synthetic.json
       - name: Verify isolated SQL authorization and migrations
         run: npm exec --yes --package=deno@2.5.6 -- deno run --node-modules-dir=none --allow-read --allow-env scripts/check-migrations.mts
       - run: npm run build
