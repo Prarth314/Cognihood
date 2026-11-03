@@ -32,7 +32,7 @@ try {
       )
       .replace(
         "</head>",
-        `<link rel="canonical" href="${canonical}"><meta property="og:title" content="${metadata.title}"><meta property="og:description" content="${metadata.description}"><meta property="og:url" content="${canonical}"><meta property="og:type" content="website"><meta property="og:image" content="${assetOrigin}/social-preview.png"><meta property="og:image:alt" content="CogniHood: A more attentive journey. Driver attention support in development."><meta name="twitter:card" content="summary_large_image"></head>`,
+        `<link rel="canonical" href="${canonical}"><meta property="og:title" content="${metadata.title}"><meta property="og:description" content="${metadata.description}"><meta property="og:url" content="${canonical}"><meta property="og:type" content="website"><meta property="og:image" content="${assetOrigin}/social-preview.png"><meta property="og:image:alt" content="CogniHood: Attention, in perspective. Driver attention support in development."><meta name="twitter:card" content="summary_large_image"></head>`,
       )
       .replace('<div id="root"></div>', `<div id="root">${markup}</div>`);
     const directory = path === "/" ? "dist" : `dist${path}`;

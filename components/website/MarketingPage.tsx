@@ -107,7 +107,7 @@ export function SignalVisual() {
         <span>
           <i /> Local processing
         </span>
-        <span className="mono">SIGNAL / 01</span>
+        <span className="mono">COGNIHOOD / OBSERVATORY</span>
       </div>
       <div className="signal-orbit">
         <div className="orbit-ring ring-one" />
@@ -133,6 +133,11 @@ export function SignalVisual() {
           <strong>Understand. Reflect.</strong>
         </span>
         <span className="visual-index">CH—01</span>
+      </div>
+      <div className="signal-channels" aria-hidden="true">
+        <span><b>01</b> Eye closure</span>
+        <span><b>02</b> Head pose</span>
+        <span><b>03</b> Signal quality</span>
       </div>
       <figcaption>Conceptual signal illustration · not live data</figcaption>
     </figure>
@@ -193,9 +198,9 @@ function Home() {
             development
           </SectionLabel>
           <h1>
-            A more
+            Attention,
             <br />
-            attentive <em>journey.</em>
+            <em>in perspective.</em>
           </h1>
           <p className="hero-description">
             Understand the signals. Stay in control. CogniHood explores how

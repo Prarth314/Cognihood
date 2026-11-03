@@ -76,9 +76,9 @@ export default function Website() {
           <aside className="auth-story">
             <p className="eyebrow-new">Your CogniHood workspace</p>
             <h1>
-              A little more
+              Your next
               <br />
-              <em>understanding.</em>
+              <em>point of view.</em>
             </h1>
             <p>
               Start with a camera check. Explore local attention indicators.

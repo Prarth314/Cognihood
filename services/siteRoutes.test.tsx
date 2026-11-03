@@ -13,7 +13,7 @@ import {
 describe("public website and route boundaries", () => {
   it("renders a public homepage without requiring authentication or a camera", () => {
     const html = renderToStaticMarkup(<MarketingPage path="/" />);
-    expect(html).toContain("attentive");
+    expect(html).toContain("Driver attention support");
     expect(html).toContain('href="/mission"');
     expect(html).not.toContain("<form");
     expect(html).not.toContain("<video");
